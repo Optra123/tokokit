@@ -202,6 +202,10 @@
     if (replace) history.replaceState({}, '', path);
     else history.pushState({}, '', path);
     state.route = parseRoute();
+    state.notice = '';
+    state.error = '';
+    state.modal = null;
+    state.sidebar = false;
     bootRoute();
   }
 
@@ -372,9 +376,9 @@
             </div>
             ${state.notice ? `<div class="notice success">${escapeHtml(state.notice)}</div>` : ''}
             ${state.error ? `<div class="notice error">${escapeHtml(state.error)}</div>` : ''}
-            ${!isLogin ? `<label class="field"><span class="label">Nama lengkap</span><input class="input" name="full_name" value="Melona Seller" required /></label>` : ''}
-            <label class="field"><span class="label">Email</span><input class="input" type="email" name="email" value="seller@example.com" required /></label>
-            <label class="field"><span class="label">Password</span><input class="input" type="password" name="password" value="password123" minlength="6" required /></label>
+            ${!isLogin ? `<label class="field"><span class="label">Nama lengkap</span><input class="input" name="full_name" value="${supabaseClient ? '' : 'Melona Seller'}" autocomplete="name" required /></label>` : ''}
+            <label class="field"><span class="label">Email</span><input class="input" type="email" name="email" value="${supabaseClient ? '' : 'seller@example.com'}" autocomplete="email" required /></label>
+            <label class="field"><span class="label">Password</span><input class="input" type="password" name="password" value="${supabaseClient ? '' : 'password123'}" autocomplete="${isLogin ? 'current-password' : 'new-password'}" minlength="6" required /></label>
             <button class="btn btn-primary btn-block" ${state.saving ? 'disabled' : ''}>${state.saving ? 'Memproses...' : isLogin ? 'Masuk' : 'Buat Akun'}</button>
             ${!supabaseClient ? `<button type="button" class="btn btn-secondary btn-block" onclick="TokoKit.go('/app/dashboard')">Lihat Demo Tanpa Login</button>` : ''}
             <p>${isLogin ? 'Belum punya akun?' : 'Sudah punya akun?'} <button type="button" class="btn btn-ghost" onclick="TokoKit.go('${isLogin ? '/register' : '/login'}')">${isLogin ? 'Daftar' : 'Masuk'}</button></p>
@@ -834,7 +838,7 @@
       <article class="product-card">
         <button class="product-img product-img-button" onclick="TokoKit.viewProduct('${product.id}')" aria-label="Lihat detail ${escapeAttr(product.name)}">${product.image_url ? `<img src="${escapeAttr(product.image_url)}" alt="">` : productInitial(product.name)}</button>
         <div class="product-body">
-          <div class="page-actions">${statusBadge(product.product_type, 'type')}${statusBadge(product.fulfillment_type || fallbackFulfillment(product), 'fulfillment')}${Number(product.stock || 0) <= 3 ? badge('Stok terbatas', 'warning') : badge('Ready', 'success')}</div>
+          <div class="page-actions">${statusBadge(product.product_type, 'type')}${statusBadge(effectiveFulfillment(product), 'fulfillment')}${Number(product.stock || 0) <= 3 ? badge('Stok terbatas', 'warning') : badge('Ready', 'success')}</div>
           <div>
             <h3 class="card-title">${escapeHtml(product.name)}</h3>
             <p class="card-desc">${escapeHtml(product.description || product.category || '')}</p>
@@ -868,7 +872,7 @@
             <div class="grid">
               <div class="page-actions">
                 ${statusBadge(product.product_type, 'type')}
-                ${statusBadge(product.fulfillment_type || fallbackFulfillment(product), 'fulfillment')}
+                ${statusBadge(effectiveFulfillment(product), 'fulfillment')}
                 ${Number(product.stock || 0) <= 3 ? badge('Stok terbatas', 'warning') : badge('Ready', 'success')}
               </div>
               <div>
@@ -879,7 +883,7 @@
               <div class="list">
                 <div class="list-row"><span>Stok</span><b>${Number(product.stock || 0)}</b></div>
                 <div class="list-row"><span>SKU</span><b>${escapeHtml(product.sku || '-')}</b></div>
-                <div class="list-row"><span>Penjualan</span><b>${fulfillmentLabel(product.fulfillment_type || fallbackFulfillment(product))}</b></div>
+                <div class="list-row"><span>Penjualan</span><b>${fulfillmentLabel(effectiveFulfillment(product))}</b></div>
               </div>
               <div class="product-actions">
                 <button class="btn btn-secondary" onclick="TokoKit.addToCart('${product.id}')">Tambah ke Cart</button>
@@ -905,7 +909,7 @@
                 <td><b>${currency(product.price)}</b>${Number(product.compare_at_price || 0) ? `<div class="row-meta"><s>${currency(product.compare_at_price)}</s></div>` : ''}</td>
                 <td>${Number(product.stock || 0)}</td>
                 <td>${statusBadge(product.product_type, 'type')}</td>
-                <td>${statusBadge(product.fulfillment_type || fallbackFulfillment(product), 'fulfillment')}</td>
+                <td>${statusBadge(effectiveFulfillment(product), 'fulfillment')}</td>
                 <td>${statusBadge(product.status, 'product')}</td>
                 <td><div class="page-actions"><button class="btn btn-small" onclick="TokoKit.openProductModal('${product.id}')">Edit</button><button class="btn btn-danger btn-small" onclick="TokoKit.archiveProduct('${product.id}')">Archive</button></div></td>
               </tr>
@@ -964,10 +968,10 @@
             ${input('stock', 'Stok', product.stock || 0, true, 'number')}
             <label class="field"><span class="label">Tipe produk</span><select class="select" name="product_type"><option value="physical" ${product.product_type === 'physical' ? 'selected' : ''}>Physical</option><option value="preorder" ${product.product_type === 'preorder' ? 'selected' : ''}>Preorder</option><option value="digital" ${product.product_type === 'digital' ? 'selected' : ''}>Digital</option><option value="service" ${product.product_type === 'service' ? 'selected' : ''}>Service</option></select></label>
             <label class="field"><span class="label">Cara penjualan</span><select class="select" name="fulfillment_type">
-              <option value="pickup" ${(product.fulfillment_type || fallbackFulfillment(product)) === 'pickup' ? 'selected' : ''}>Ambil di toko</option>
-              <option value="delivery" ${(product.fulfillment_type || fallbackFulfillment(product)) === 'delivery' ? 'selected' : ''}>Delivery pakai alamat</option>
-              <option value="digital" ${(product.fulfillment_type || fallbackFulfillment(product)) === 'digital' ? 'selected' : ''}>Digital tanpa alamat</option>
-              <option value="preorder_pickup" ${(product.fulfillment_type || fallbackFulfillment(product)) === 'preorder_pickup' ? 'selected' : ''}>Preorder ambil di toko</option>
+              <option value="pickup" ${effectiveFulfillment(product) === 'pickup' ? 'selected' : ''}>Ambil di toko</option>
+              <option value="delivery" ${effectiveFulfillment(product) === 'delivery' ? 'selected' : ''}>Delivery pakai alamat</option>
+              <option value="digital" ${effectiveFulfillment(product) === 'digital' ? 'selected' : ''}>Digital tanpa alamat</option>
+              <option value="preorder_pickup" ${effectiveFulfillment(product) === 'preorder_pickup' ? 'selected' : ''}>Preorder ambil di toko</option>
             </select></label>
             <label class="field"><span class="label">Status</span><select class="select" name="status"><option value="active" ${product.status === 'active' ? 'selected' : ''}>Active</option><option value="draft" ${product.status === 'draft' ? 'selected' : ''}>Draft</option><option value="archived" ${product.status === 'archived' ? 'selected' : ''}>Archived</option></select></label>
             ${input('image_url', 'URL gambar produk', product.image_url || '')}
@@ -998,9 +1002,9 @@
       go('/app/dashboard');
     } catch (error) {
       state.error = error.message;
-      render();
     } finally {
       state.saving = false;
+      render();
     }
   }
 
@@ -1025,9 +1029,9 @@
       go('/login');
     } catch (error) {
       state.error = error.message;
-      render();
     } finally {
       state.saving = false;
+      render();
     }
   }
 
@@ -1210,7 +1214,7 @@
     if (!product) return;
     const existing = state.cart.find((item) => item.id === productId);
     if (existing) existing.qty += 1;
-    else state.cart.push({ id: product.id, name: product.name, price: Number(product.price || 0), qty: 1, product_id: product.id, fulfillment_type: product.fulfillment_type || fallbackFulfillment(product) });
+    else state.cart.push({ id: product.id, name: product.name, price: Number(product.price || 0), qty: 1, product_id: product.id, fulfillment_type: effectiveFulfillment(product) });
     persistCart();
     render();
   }
@@ -1218,7 +1222,7 @@
   function buyNow(productId) {
     const product = state.publicProducts.find((item) => item.id === productId);
     if (!product) return;
-    state.cart = [{ id: product.id, name: product.name, price: Number(product.price || 0), qty: 1, product_id: product.id, fulfillment_type: product.fulfillment_type || fallbackFulfillment(product) }];
+    state.cart = [{ id: product.id, name: product.name, price: Number(product.price || 0), qty: 1, product_id: product.id, fulfillment_type: effectiveFulfillment(product) }];
     state.modal = null;
     persistCart();
     go(`/checkout/${state.publicStore?.slug || config.DEMO_STORE_SLUG || 'senja-kopi'}`);
@@ -1488,6 +1492,13 @@
     if (product.product_type === 'digital' || product.product_type === 'service') return 'digital';
     if (product.product_type === 'preorder') return 'preorder_pickup';
     return state.store?.fulfillment_mode || state.publicStore?.fulfillment_mode || 'pickup';
+  }
+
+  function effectiveFulfillment(product) {
+    const explicit = product.fulfillment_type;
+    if ((product.product_type === 'digital' || product.product_type === 'service') && (!explicit || explicit === 'pickup')) return 'digital';
+    if (product.product_type === 'preorder' && (!explicit || explicit === 'pickup')) return 'preorder_pickup';
+    return explicit || fallbackFulfillment(product);
   }
 
   function fulfillmentLabel(value) {
