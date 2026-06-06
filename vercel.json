@@ -1,0 +1,11 @@
+{
+  "rewrites": [
+    { "source": "/", "destination": "/frontend/index.html" },
+    { "source": "/login", "destination": "/frontend/index.html" },
+    { "source": "/register", "destination": "/frontend/index.html" },
+    { "source": "/app/:path*", "destination": "/frontend/index.html" },
+    { "source": "/store/:path*", "destination": "/frontend/index.html" },
+    { "source": "/checkout/:path*", "destination": "/frontend/index.html" },
+    { "source": "/success/:path*", "destination": "/frontend/index.html" }
+  ]
+}
