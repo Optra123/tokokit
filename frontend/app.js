@@ -30,12 +30,17 @@
     store: null,
     products: [],
     orders: [],
+    orderItems: [],
     payments: [],
+    inventoryItems: [],
+    stockMovements: [],
+    fulfillmentLogs: [],
     cart: readCart(),
     publicStore: null,
     publicProducts: [],
     lastOrder: readJson('tokokit:lastOrder', null),
     authForm: { full_name: '', email: '', password: '' },
+    inventoryFilters: { search: '', product_id: '', status: '' },
     notice: '',
     error: '',
     modal: null
@@ -75,6 +80,10 @@
       { id: 'prd-demo-3', tenant_id: demoTenantId, store_id: demoStoreId, name: 'Kopi Robusta Lampung 500g', slug: 'kopi-robusta-lampung-500g', sku: 'SKU-RL500', category: 'Biji Kopi', description: 'Robusta Lampung dengan body tebal.', price: 120000, compare_at_price: 0, stock: 0, product_type: 'physical', fulfillment_type: 'delivery', status: 'draft', image_url: '' },
       { id: 'prd-demo-4', tenant_id: demoTenantId, store_id: demoStoreId, name: 'Voucher Kopi Digital', slug: 'voucher-kopi-digital', sku: 'SKU-VKD', category: 'Voucher', description: 'Voucher digital yang dikirim lewat WhatsApp.', price: 50000, compare_at_price: 0, stock: 100, product_type: 'digital', fulfillment_type: 'digital', status: 'active', image_url: '' }
     ],
+    inventoryItems: [
+      { id: 'inv-demo-1', tenant_id: demoTenantId, store_id: demoStoreId, product_id: 'prd-demo-4', label: 'Voucher Kopi 50K #001', payload: 'KODE-VOUCHER-001 | berlaku 30 hari', status: 'available', note: 'Demo stok digital', created_at: today(), updated_at: today() },
+      { id: 'inv-demo-2', tenant_id: demoTenantId, store_id: demoStoreId, product_id: 'prd-demo-4', label: 'Voucher Kopi 50K #002', payload: 'KODE-VOUCHER-002 | berlaku 30 hari', status: 'available', note: 'Demo stok digital', created_at: today(), updated_at: today() }
+    ],
     orders: [
       { id: 'ord-demo-1', tenant_id: demoTenantId, store_id: demoStoreId, order_number: 'TK-0001', buyer_name: 'Budi Santoso', buyer_whatsapp: '6281111111111', buyer_email: 'budi@email.com', buyer_address: 'Jakarta Selatan', subtotal: 150000, shipping_fee: 0, discount_amount: 0, total_amount: 150000, payment_method: 'manual_transfer', payment_status: 'paid', order_status: 'processing', notes: '', created_at: today() },
       { id: 'ord-demo-2', tenant_id: demoTenantId, store_id: demoStoreId, order_number: 'TK-0002', buyer_name: 'Siti Aminah', buyer_whatsapp: '6282222222222', buyer_email: 'siti@email.com', buyer_address: 'Depok', subtotal: 45000, shipping_fee: 0, discount_amount: 0, total_amount: 45000, payment_method: 'qris', payment_status: 'unpaid', order_status: 'new', notes: 'Kirim sore', created_at: today() }
@@ -82,13 +91,17 @@
     payments: [
       { id: 'pay-demo-1', order_id: 'ord-demo-1', tenant_id: demoTenantId, store_id: demoStoreId, amount: 150000, method: 'manual_transfer', status: 'paid' },
       { id: 'pay-demo-2', order_id: 'ord-demo-2', tenant_id: demoTenantId, store_id: demoStoreId, amount: 45000, method: 'qris', status: 'unpaid' }
-    ]
+    ],
+    orderItems: [],
+    stockMovements: [],
+    fulfillmentLogs: []
   };
 
   const navItems = [
     ['dashboard', 'Dashboard', 'D'],
     ['store', 'Toko Saya', 'T'],
     ['products', 'Produk', 'P'],
+    ['inventory', 'Inventori', 'I'],
     ['orders', 'Pesanan', 'O'],
     ['payments', 'Pembayaran', 'B'],
     ['settings', 'Pengaturan', 'S']
@@ -110,6 +123,13 @@
     closeModal,
     saveProduct,
     archiveProduct,
+    openInventoryModal,
+    saveInventoryItem,
+    deleteInventoryItem,
+    updateInventoryFilter,
+    handleInventoryImport,
+    exportInventoryCsv,
+    openOrderDetail,
     updatePaymentStatus,
     updateOrderStatus,
     addToCart,
@@ -219,7 +239,11 @@
       state.store = readJson('tokokit:demoStore', demo.store);
       state.products = readJson('tokokit:demoProducts', demo.products);
       state.orders = readJson('tokokit:demoOrders', demo.orders);
+      state.orderItems = readJson('tokokit:demoOrderItems', demo.orderItems);
       state.payments = readJson('tokokit:demoPayments', demo.payments);
+      state.inventoryItems = readJson('tokokit:demoInventoryItems', demo.inventoryItems);
+      state.stockMovements = readJson('tokokit:demoStockMovements', demo.stockMovements);
+      state.fulfillmentLogs = readJson('tokokit:demoFulfillmentLogs', demo.fulfillmentLogs);
       return;
     }
 
@@ -281,19 +305,39 @@
       state.store = createdStore;
     }
 
-    const [productsResult, ordersResult, paymentsResult] = await Promise.all([
+    const [productsResult, ordersResult, orderItemsResult, paymentsResult] = await Promise.all([
       supabaseClient.from('products').select('*').eq('tenant_id', profile.tenant_id).order('created_at', { ascending: false }),
       supabaseClient.from('orders').select('*').eq('tenant_id', profile.tenant_id).order('created_at', { ascending: false }),
+      supabaseClient.from('order_items').select('*').eq('tenant_id', profile.tenant_id).order('created_at', { ascending: false }),
       supabaseClient.from('payments').select('*').eq('tenant_id', profile.tenant_id).order('created_at', { ascending: false })
     ]);
 
     if (productsResult.error) throw productsResult.error;
     if (ordersResult.error) throw ordersResult.error;
+    if (orderItemsResult.error) throw orderItemsResult.error;
     if (paymentsResult.error) throw paymentsResult.error;
 
     state.products = productsResult.data || [];
     state.orders = ordersResult.data || [];
+    state.orderItems = orderItemsResult.data || [];
     state.payments = paymentsResult.data || [];
+
+    const [inventoryResult, stockMovementsResult, fulfillmentLogsResult] = await Promise.all([
+      supabaseClient.from('inventory_items').select('*').eq('tenant_id', profile.tenant_id).order('created_at', { ascending: false }),
+      supabaseClient.from('stock_movements').select('*').eq('tenant_id', profile.tenant_id).order('created_at', { ascending: false }),
+      supabaseClient.from('fulfillment_logs').select('*').eq('tenant_id', profile.tenant_id).order('created_at', { ascending: false })
+    ]);
+    const optionalErrors = [inventoryResult.error, stockMovementsResult.error, fulfillmentLogsResult.error].filter(Boolean);
+    if (optionalErrors.length) {
+      state.inventoryItems = [];
+      state.stockMovements = [];
+      state.fulfillmentLogs = [];
+      state.error = 'Schema inventori belum aktif di Supabase. Jalankan ulang docs/SUPABASE_SCHEMA.sql agar menu Inventori dan fulfillment digital bisa dipakai.';
+    } else {
+      state.inventoryItems = inventoryResult.data || [];
+      state.stockMovements = stockMovementsResult.data || [];
+      state.fulfillmentLogs = fulfillmentLogsResult.data || [];
+    }
   }
 
   async function loadPublicData() {
@@ -477,6 +521,7 @@
       dashboard: renderDashboard,
       store: renderStorePage,
       products: renderProductsPage,
+      inventory: renderInventoryPage,
       orders: renderOrdersPage,
       payments: renderPaymentsPage,
       settings: renderSettingsPage
@@ -491,6 +536,8 @@
           ${content}
         </main>
         ${state.modal?.type === 'product' ? renderProductModal() : ''}
+        ${state.modal?.type === 'inventory' ? renderInventoryModal() : ''}
+        ${state.modal?.type === 'orderDetail' ? renderOrderDetailModal() : ''}
       </div>
     `;
   }
@@ -726,6 +773,61 @@
     return pageShell('Produk', 'Kelola katalog, harga, stok, dan status publikasi.', actions, content);
   }
 
+  function renderInventoryPage() {
+    const digitalProducts = state.products.filter((product) => effectiveFulfillment(product) === 'digital' || product.product_type === 'digital');
+    const available = state.inventoryItems.filter((item) => item.status === 'available').length;
+    const reserved = state.inventoryItems.filter((item) => item.status === 'reserved').length;
+    const sold = state.inventoryItems.filter((item) => item.status === 'sold' || item.status === 'delivered').length;
+    const filtered = filteredInventoryItems();
+    const actions = `
+      <button class="btn btn-secondary" onclick="TokoKit.exportInventoryCsv()">Export CSV</button>
+      <button class="btn btn-primary" onclick="TokoKit.openInventoryModal()">Tambah Stok</button>
+    `;
+    const content = `
+      <div class="grid grid-4" style="margin-bottom:16px">
+        ${metric('A', 'Available', available, 'Siap dijual')}
+        ${metric('R', 'Reserved', reserved, 'Tertahan order')}
+        ${metric('S', 'Sold/Delivered', sold, 'Sudah dipakai')}
+        ${metric('P', 'Produk digital', digitalProducts.length, 'Butuh stok siap kirim')}
+      </div>
+      <div class="grid grid-2" style="align-items:start">
+        <div class="card">
+          <h3 class="card-title">Stok Digital</h3>
+          <p class="card-desc">Simpan kode voucher, akun, license key, atau data digital lain. Payload hanya tampil untuk seller.</p>
+          <div class="filters">
+            <input class="input" style="max-width:260px" placeholder="Cari label, payload, atau catatan..." value="${escapeAttr(state.inventoryFilters.search)}" oninput="TokoKit.updateInventoryFilter('search', this.value)" />
+            <select class="select" style="max-width:220px" onchange="TokoKit.updateInventoryFilter('product_id', this.value)">
+              <option value="">Semua produk</option>
+              ${digitalProducts.map((product) => `<option value="${product.id}" ${state.inventoryFilters.product_id === product.id ? 'selected' : ''}>${escapeHtml(product.name)}</option>`).join('')}
+            </select>
+            <select class="select" style="max-width:180px" onchange="TokoKit.updateInventoryFilter('status', this.value)">
+              <option value="">Semua status</option>
+              ${['available', 'reserved', 'sold', 'delivered', 'cancelled'].map((status) => `<option value="${status}" ${state.inventoryFilters.status === status ? 'selected' : ''}>${inventoryStatusLabel(status)}</option>`).join('')}
+            </select>
+          </div>
+          ${filtered.length ? renderInventoryTable(filtered) : emptyState('Belum ada stok digital yang cocok dengan filter. Tambahkan stok atau import CSV.')}
+        </div>
+        <div class="grid">
+          <div class="card">
+            <h3 class="card-title">Import dari Spreadsheet</h3>
+            <p class="card-desc">Export Google Sheets atau Excel ke CSV, lalu upload di sini.</p>
+            <div class="notice">Kolom wajib: product_sku atau product_id, label, payload. Kolom opsional: status, note.</div>
+            <br>
+            <input class="input" type="file" accept=".csv,text/csv" onchange="TokoKit.handleInventoryImport(event)">
+            <br><br>
+            <button class="btn btn-secondary" onclick="TokoKit.exportInventoryCsv()">Download Template CSV</button>
+          </div>
+          <div class="card">
+            <h3 class="card-title">Riwayat Stok</h3>
+            <p class="card-desc">Perubahan stok penting akan tercatat untuk audit ringan.</p>
+            ${state.stockMovements.length ? renderStockMovements(state.stockMovements.slice(0, 8)) : emptyState('Belum ada riwayat stok.')}
+          </div>
+        </div>
+      </div>
+    `;
+    return pageShell('Inventori', 'Kelola stok digital siap kirim dan riwayat fulfillment.', actions, content);
+  }
+
   function renderOrdersPage() {
     const actions = `<button class="btn btn-secondary" onclick="location.reload()">Refresh</button>`;
     const content = `
@@ -818,7 +920,10 @@
             <button class="btn btn-primary" onclick="TokoKit.go('/checkout/${store.slug}')">Cart (${cartCount()})</button>
           </div>
         </nav>
-        <main class="store-main">${content}</main>
+        <main class="store-main">
+          ${state.error ? `<div class="notice error" style="margin-bottom:16px">${escapeHtml(state.error)}</div>` : ''}
+          ${content}
+        </main>
         ${state.modal?.type === 'publicProduct' ? renderPublicProductModal() : ''}
       </div>
     `;
@@ -947,11 +1052,12 @@
   }
 
   function renderPublicProduct(product) {
+    const digitalOut = effectiveFulfillment(product) === 'digital' && Number(product.stock || 0) <= 0;
     return `
       <article class="product-card">
         <button class="product-img product-img-button" onclick="TokoKit.viewProduct('${product.id}')" aria-label="Lihat detail ${escapeAttr(product.name)}">${product.image_url ? `<img src="${escapeAttr(product.image_url)}" alt="">` : productInitial(product.name)}</button>
         <div class="product-body">
-          <div class="page-actions">${statusBadge(product.product_type, 'type')}${statusBadge(effectiveFulfillment(product), 'fulfillment')}${Number(product.stock || 0) <= 3 ? badge('Stok terbatas', 'warning') : badge('Ready', 'success')}</div>
+          <div class="page-actions">${statusBadge(product.product_type, 'type')}${statusBadge(effectiveFulfillment(product), 'fulfillment')}${digitalOut ? badge('Stok digital habis', 'danger') : Number(product.stock || 0) <= 3 ? badge('Stok terbatas', 'warning') : badge('Ready', 'success')}</div>
           <div>
             <h3 class="card-title">${escapeHtml(product.name)}</h3>
             <p class="card-desc">${escapeHtml(product.description || product.category || '')}</p>
@@ -959,8 +1065,8 @@
           <div class="price">${currency(product.price)}</div>
           <div class="product-actions">
             <button class="btn" onclick="TokoKit.viewProduct('${product.id}')">Detail</button>
-            <button class="btn btn-secondary" onclick="TokoKit.addToCart('${product.id}')">Tambah Cart</button>
-            <button class="btn btn-primary" onclick="TokoKit.buyNow('${product.id}')">Beli Sekarang</button>
+            <button class="btn btn-secondary" onclick="TokoKit.addToCart('${product.id}')" ${digitalOut ? 'disabled' : ''}>Tambah Cart</button>
+            <button class="btn btn-primary" onclick="TokoKit.buyNow('${product.id}')" ${digitalOut ? 'disabled' : ''}>Beli Sekarang</button>
           </div>
         </div>
       </article>
@@ -970,6 +1076,7 @@
   function renderPublicProductModal() {
     const product = state.modal.product;
     if (!product) return '';
+    const digitalOut = effectiveFulfillment(product) === 'digital' && Number(product.stock || 0) <= 0;
     return `
       <div class="modal-backdrop">
         <div class="modal product-detail-modal">
@@ -986,7 +1093,7 @@
               <div class="page-actions">
                 ${statusBadge(product.product_type, 'type')}
                 ${statusBadge(effectiveFulfillment(product), 'fulfillment')}
-                ${Number(product.stock || 0) <= 3 ? badge('Stok terbatas', 'warning') : badge('Ready', 'success')}
+                ${digitalOut ? badge('Stok digital habis', 'danger') : Number(product.stock || 0) <= 3 ? badge('Stok terbatas', 'warning') : badge('Ready', 'success')}
               </div>
               <div>
                 <div class="price">${currency(product.price)}</div>
@@ -999,8 +1106,8 @@
                 <div class="list-row"><span>Penjualan</span><b>${fulfillmentLabel(effectiveFulfillment(product))}</b></div>
               </div>
               <div class="product-actions">
-                <button class="btn btn-secondary" onclick="TokoKit.addToCart('${product.id}')">Tambah ke Cart</button>
-                <button class="btn btn-primary" onclick="TokoKit.buyNow('${product.id}')">Beli Sekarang</button>
+                <button class="btn btn-secondary" onclick="TokoKit.addToCart('${product.id}')" ${digitalOut ? 'disabled' : ''}>Tambah ke Cart</button>
+                <button class="btn btn-primary" onclick="TokoKit.buyNow('${product.id}')" ${digitalOut ? 'disabled' : ''}>Beli Sekarang</button>
               </div>
             </div>
           </div>
@@ -1033,6 +1140,47 @@
     `;
   }
 
+  function renderInventoryTable(items) {
+    return `
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Item</th><th>Produk</th><th>Payload</th><th>Status</th><th>Order</th><th>Aksi</th></tr></thead>
+          <tbody>
+            ${items.map((item) => {
+              const product = productById(item.product_id);
+              return `
+                <tr>
+                  <td><b>${escapeHtml(item.label || '-')}</b><div class="row-meta">${escapeHtml(item.note || '-')}</div></td>
+                  <td>${escapeHtml(product?.name || item.product_id || '-')}<div class="row-meta">${escapeHtml(product?.sku || '-')}</div></td>
+                  <td><code class="inline-code">${escapeHtml(maskPayload(item.payload))}</code></td>
+                  <td>${statusBadge(item.status, 'inventory')}</td>
+                  <td>${escapeHtml(orderNumberById(item.order_id) || '-')}</td>
+                  <td><div class="page-actions"><button class="btn btn-small" onclick="TokoKit.openInventoryModal('${item.id}')">Edit</button><button class="btn btn-danger btn-small" onclick="TokoKit.deleteInventoryItem('${item.id}')">Hapus</button></div></td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function renderStockMovements(items) {
+    return `
+      <div class="list">
+        ${items.map((item) => `
+          <div class="list-row">
+            <div>
+              <b>${escapeHtml(stockMovementLabel(item.movement_type))}</b>
+              <div class="row-meta">${escapeHtml(productById(item.product_id)?.name || '-')} - ${formatDate(item.created_at)}</div>
+            </div>
+            <b>${Number(item.quantity_delta || 0) > 0 ? '+' : ''}${Number(item.quantity_delta || 0)}</b>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
   function renderOrdersTable(orders, compact) {
     return `
       <div class="table-wrap">
@@ -1048,6 +1196,7 @@
                 <td>${statusBadge(order.payment_status, 'payment')}</td>
                 <td>${statusBadge(order.order_status, 'order')}</td>
                 ${compact ? '' : `<td><div class="page-actions">
+                  <button class="btn btn-small" onclick="TokoKit.openOrderDetail('${order.id}')">Detail</button>
                   <select class="select" style="width:145px" onchange="TokoKit.updatePaymentStatus('${order.id}', this.value)"><option value="unpaid" ${order.payment_status === 'unpaid' ? 'selected' : ''}>Unpaid</option><option value="paid" ${order.payment_status === 'paid' ? 'selected' : ''}>Paid</option><option value="failed" ${order.payment_status === 'failed' ? 'selected' : ''}>Failed</option></select>
                   <select class="select" style="width:160px" onchange="TokoKit.updateOrderStatus('${order.id}', this.value)"><option value="new" ${order.order_status === 'new' ? 'selected' : ''}>Baru</option><option value="processing" ${order.order_status === 'processing' ? 'selected' : ''}>Diproses</option><option value="shipped" ${order.order_status === 'shipped' ? 'selected' : ''}>Dikirim</option><option value="completed" ${order.order_status === 'completed' ? 'selected' : ''}>Selesai</option><option value="cancelled" ${order.order_status === 'cancelled' ? 'selected' : ''}>Batal</option></select>
                 </div></td>`}
@@ -1103,14 +1252,124 @@
             <br>
             ${textarea('delivery_message', 'Pesan email / instruksi', product.delivery_message || 'Terima kasih. Berikut detail pesanan digital kamu:')}
             <br>
-            ${textarea('digital_stock_notes', 'Stok digital siap kirim', product.digital_stock_notes || '')}
-            <p class="small-muted">Format sementara: satu item per baris. Contoh: akun@email.com | password123 | catatan. Jangan aktifkan ke publik sebelum payment gateway dan auto-delivery selesai.</p>
+            ${textarea('digital_stock_notes', 'Catatan stok legacy', product.digital_stock_notes || '')}
+            <p class="small-muted">Stok siap kirim sekarang dikelola di menu Inventori agar bisa import/export CSV dan di-reserve per order.</p>
           </div>
           <br>
           <button class="btn btn-primary btn-block" ${state.saving ? 'disabled' : ''}>${state.saving ? 'Menyimpan...' : 'Simpan Produk'}</button>
         </form>
       </div>
     `;
+  }
+
+  function renderInventoryModal() {
+    const item = state.modal.item || {};
+    const digitalProducts = state.products.filter((product) => effectiveFulfillment(product) === 'digital' || product.product_type === 'digital');
+    return `
+      <div class="modal-backdrop">
+        <form class="modal" onsubmit="TokoKit.saveInventoryItem(event)">
+          <div class="modal-header">
+            <div>
+              <h3 class="card-title">${item.id ? 'Edit Stok Digital' : 'Tambah Stok Digital'}</h3>
+              <p class="card-desc">Isi payload hanya terlihat seller. Jangan taruh data sensitif di nama produk publik.</p>
+            </div>
+            <button type="button" class="btn btn-ghost" onclick="TokoKit.closeModal()">Tutup</button>
+          </div>
+          <input type="hidden" name="id" value="${escapeAttr(item.id || '')}">
+          <div class="form-grid">
+            <label class="field"><span class="label">Produk digital</span><select class="select" name="product_id" required>
+              <option value="">Pilih produk</option>
+              ${digitalProducts.map((product) => `<option value="${product.id}" ${item.product_id === product.id ? 'selected' : ''}>${escapeHtml(product.name)}${product.sku ? ` (${escapeHtml(product.sku)})` : ''}</option>`).join('')}
+            </select></label>
+            ${input('label', 'Label item', item.label || '', true)}
+            <label class="field"><span class="label">Status</span><select class="select" name="status">
+              ${['available', 'reserved', 'sold', 'delivered', 'cancelled'].map((status) => `<option value="${status}" ${(item.status || 'available') === status ? 'selected' : ''}>${inventoryStatusLabel(status)}</option>`).join('')}
+            </select></label>
+            ${input('note', 'Catatan internal', item.note || '')}
+          </div>
+          <br>
+          ${textarea('payload', 'Payload siap kirim', item.payload || '')}
+          <p class="small-muted">Contoh payload: email akun, password, license key, link file, PIN voucher, atau instruksi khusus.</p>
+          <br>
+          <button class="btn btn-primary btn-block" ${state.saving ? 'disabled' : ''}>${state.saving ? 'Menyimpan...' : 'Simpan Stok'}</button>
+        </form>
+      </div>
+    `;
+  }
+
+  function renderOrderDetailModal() {
+    const order = state.modal.order;
+    if (!order) return '';
+    const items = state.orderItems.filter((item) => item.order_id === order.id);
+    const reservedItems = state.inventoryItems.filter((item) => item.order_id === order.id);
+    const logs = state.fulfillmentLogs.filter((log) => log.order_id === order.id).slice(0, 8);
+    return `
+      <div class="modal-backdrop">
+        <div class="modal order-detail-modal">
+          <div class="modal-header">
+            <div>
+              <h3 class="card-title">Detail Pesanan ${escapeHtml(order.order_number || '-')}</h3>
+              <p class="card-desc">${escapeHtml(order.buyer_name || '-')} - ${escapeHtml(order.buyer_whatsapp || '-')}</p>
+            </div>
+            <button type="button" class="btn btn-ghost" onclick="TokoKit.closeModal()">Tutup</button>
+          </div>
+          <div class="grid grid-2">
+            <div class="card" style="box-shadow:none">
+              <h3 class="card-title">Ringkasan</h3>
+              <div class="list">
+                <div class="list-row"><span>Total</span><b>${currency(order.total_amount)}</b></div>
+                <div class="list-row"><span>Pembayaran</span>${statusBadge(order.payment_status, 'payment')}</div>
+                <div class="list-row"><span>Pesanan</span>${statusBadge(order.order_status, 'order')}</div>
+                <div class="list-row"><span>Metode</span>${statusBadge(order.payment_method, 'method')}</div>
+                <div class="list-row"><span>Fulfillment</span>${statusBadge(order.fulfillment_type, 'fulfillment')}</div>
+              </div>
+            </div>
+            <div class="card" style="box-shadow:none">
+              <h3 class="card-title">Data Buyer</h3>
+              <div class="list">
+                <div class="list-row"><span>Email</span><b>${escapeHtml(order.buyer_email || '-')}</b></div>
+                <div class="list-row"><span>Alamat</span><b>${escapeHtml(order.buyer_address || '-')}</b></div>
+                <div class="list-row"><span>Catatan</span><b>${escapeHtml(order.notes || '-')}</b></div>
+              </div>
+            </div>
+          </div>
+          <br>
+          <div class="card" style="box-shadow:none">
+            <h3 class="card-title">Item Pesanan</h3>
+            ${items.length ? renderOrderItemsList(items) : emptyState('Item pesanan belum termuat. Refresh data jika baru membuat order.')}
+          </div>
+          <br>
+          <div class="grid grid-2">
+            <div class="card" style="box-shadow:none">
+              <h3 class="card-title">Stok Digital Terpakai</h3>
+              ${reservedItems.length ? renderReservedInventory(reservedItems) : emptyState('Belum ada stok digital yang di-reserve untuk order ini.')}
+            </div>
+            <div class="card" style="box-shadow:none">
+              <h3 class="card-title">Log Fulfillment</h3>
+              ${logs.length ? renderFulfillmentLogs(logs) : emptyState('Belum ada log fulfillment.')}
+            </div>
+          </div>
+          <br>
+          <div class="page-actions">
+            <button class="btn btn-secondary" onclick="TokoKit.updatePaymentStatus('${order.id}', 'paid')">Mark Paid & Reserve Digital</button>
+            <button class="btn" onclick="TokoKit.updateOrderStatus('${order.id}', 'processing')">Proses</button>
+            <button class="btn btn-primary" onclick="TokoKit.updateOrderStatus('${order.id}', 'completed')">Selesai</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderOrderItemsList(items) {
+    return `<div class="list">${items.map((item) => `<div class="list-row"><span>${escapeHtml(item.product_name)}<div class="row-meta">${fulfillmentLabel(item.fulfillment_type)}</div></span><b>${item.quantity} x ${currency(item.unit_price)}</b></div>`).join('')}</div>`;
+  }
+
+  function renderReservedInventory(items) {
+    return `<div class="list">${items.map((item) => `<div class="list-row"><span><b>${escapeHtml(item.label)}</b><div class="row-meta"><code class="inline-code">${escapeHtml(item.payload || '-')}</code></div></span>${statusBadge(item.status, 'inventory')}</div>`).join('')}</div>`;
+  }
+
+  function renderFulfillmentLogs(logs) {
+    return `<div class="list">${logs.map((log) => `<div class="list-row"><span><b>${escapeHtml(fulfillmentActionLabel(log.action))}</b><div class="row-meta">${escapeHtml(log.message || '-')}</div></span>${statusBadge(log.status, 'inventory')}</div>`).join('')}</div>`;
   }
 
   async function login(event) {
@@ -1304,9 +1563,194 @@
     render();
   }
 
+  function openInventoryModal(id) {
+    const item = id ? state.inventoryItems.find((record) => record.id === id) : null;
+    state.modal = { type: 'inventory', item: item || { status: 'available', product_id: state.products.find((product) => effectiveFulfillment(product) === 'digital')?.id || '' } };
+    render();
+  }
+
+  async function saveInventoryItem(event) {
+    event.preventDefault();
+    const values = formValues(event.target);
+    const id = values.id;
+    const product = productById(values.product_id);
+    if (!product) {
+      state.error = 'Pilih produk digital yang valid.';
+      render();
+      return;
+    }
+    const payload = {
+      tenant_id: state.store.tenant_id,
+      store_id: state.store.id,
+      product_id: values.product_id,
+      label: values.label,
+      payload: values.payload,
+      status: values.status || 'available',
+      note: values.note,
+      updated_at: today()
+    };
+    state.saving = true;
+    state.error = '';
+    render();
+    try {
+      if (supabaseClient) {
+        if (id) {
+          const { data, error } = await supabaseClient.from('inventory_items').update(payload).eq('id', id).select().single();
+          if (error) throw error;
+          state.inventoryItems = state.inventoryItems.map((item) => item.id === id ? data : item);
+        } else {
+          const { data, error } = await supabaseClient.from('inventory_items').insert(payload).select().single();
+          if (error) throw error;
+          state.inventoryItems.unshift(data);
+          await createStockMovement(values.product_id, 'manual_adjustment', payload.status === 'available' ? 1 : 0, 'Tambah stok digital manual');
+        }
+      } else {
+        if (id) state.inventoryItems = state.inventoryItems.map((item) => item.id === id ? { ...item, ...payload } : item);
+        else state.inventoryItems.unshift({ ...payload, id: 'inv-' + Date.now(), created_at: today() });
+        writeJson('tokokit:demoInventoryItems', state.inventoryItems);
+      }
+      await syncDigitalProductStock(values.product_id);
+      state.modal = null;
+      state.notice = 'Stok digital berhasil disimpan.';
+    } catch (error) {
+      state.error = error.message;
+    } finally {
+      state.saving = false;
+      render();
+    }
+  }
+
+  async function deleteInventoryItem(id) {
+    const item = state.inventoryItems.find((record) => record.id === id);
+    if (!item) return;
+    if (!['available', 'cancelled'].includes(item.status)) {
+      state.error = 'Stok yang sudah reserved, sold, atau delivered tidak boleh dihapus agar riwayat order tetap aman.';
+      render();
+      return;
+    }
+    if (!confirm('Hapus stok digital ini? Payload tidak bisa dikembalikan setelah dihapus.')) return;
+    state.saving = true;
+    state.error = '';
+    try {
+      if (supabaseClient) {
+        const { error } = await supabaseClient.from('inventory_items').delete().eq('id', id);
+        if (error) throw error;
+      }
+      state.inventoryItems = state.inventoryItems.filter((record) => record.id !== id);
+      writeJson('tokokit:demoInventoryItems', state.inventoryItems);
+      await createStockMovement(item.product_id, 'manual_adjustment', item.status === 'available' ? -1 : 0, 'Hapus stok digital');
+      await syncDigitalProductStock(item.product_id);
+      state.notice = 'Stok digital dihapus.';
+    } catch (error) {
+      state.error = error.message;
+    } finally {
+      state.saving = false;
+      render();
+    }
+  }
+
+  function updateInventoryFilter(field, value) {
+    state.inventoryFilters[field] = value;
+    render();
+  }
+
+  async function handleInventoryImport(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const rows = parseCsv(text);
+      if (!rows.length) throw new Error('CSV kosong. Pastikan baris pertama berisi header.');
+      const headers = rows[0].map((cell) => normalizeHeader(cell));
+      const body = rows.slice(1).filter((row) => row.some((cell) => String(cell || '').trim()));
+      const imported = [];
+      const errors = [];
+      body.forEach((row, index) => {
+        const record = Object.fromEntries(headers.map((header, idx) => [header, row[idx] || '']));
+        const product = findProductForImport(record.product_id, record.product_sku || record.sku);
+        if (!product) {
+          errors.push(`Baris ${index + 2}: produk tidak ditemukan.`);
+          return;
+        }
+        if (!record.label || !record.payload) {
+          errors.push(`Baris ${index + 2}: label dan payload wajib diisi.`);
+          return;
+        }
+        imported.push({
+          tenant_id: state.store.tenant_id,
+          store_id: state.store.id,
+          product_id: product.id,
+          label: record.label,
+          payload: record.payload,
+          status: ['available', 'reserved', 'sold', 'delivered', 'cancelled'].includes(record.status) ? record.status : 'available',
+          note: record.note || '',
+          created_at: today(),
+          updated_at: today()
+        });
+      });
+      if (!imported.length) throw new Error(errors.join(' ') || 'Tidak ada baris valid untuk diimport.');
+      if (supabaseClient) {
+        const { data, error } = await supabaseClient.from('inventory_items').insert(imported).select();
+        if (error) throw error;
+        state.inventoryItems = [...(data || []), ...state.inventoryItems];
+      } else {
+        state.inventoryItems = imported.map((item, index) => ({ ...item, id: 'inv-import-' + Date.now() + '-' + index })).concat(state.inventoryItems);
+        writeJson('tokokit:demoInventoryItems', state.inventoryItems);
+      }
+      const affectedProducts = [...new Set(imported.map((item) => item.product_id))];
+      await Promise.all(affectedProducts.map((productId) => syncDigitalProductStock(productId)));
+      await Promise.all(affectedProducts.map((productId) => createStockMovement(productId, 'manual_adjustment', imported.filter((item) => item.product_id === productId && item.status === 'available').length, 'Import CSV stok digital')));
+      state.notice = `${imported.length} stok digital berhasil diimport.${errors.length ? ` ${errors.length} baris dilewati.` : ''}`;
+      if (errors.length) state.error = errors.slice(0, 3).join(' ');
+    } catch (error) {
+      state.error = error.message;
+    } finally {
+      event.target.value = '';
+      render();
+    }
+  }
+
+  function exportInventoryCsv() {
+    const rows = [
+      ['product_sku', 'product_id', 'label', 'payload', 'status', 'note'],
+      ...state.inventoryItems.map((item) => {
+        const product = productById(item.product_id);
+        return [product?.sku || '', item.product_id || '', item.label || '', item.payload || '', item.status || 'available', item.note || ''];
+      })
+    ];
+    const csv = rows.map((row) => row.map(csvCell).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'tokokit-inventory.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function openOrderDetail(orderId) {
+    const order = state.orders.find((item) => item.id === orderId);
+    if (!order) return;
+    state.modal = { type: 'orderDetail', order };
+    render();
+  }
+
   async function updatePaymentStatus(orderId, paymentStatus) {
+    state.saving = true;
+    state.error = '';
+    render();
+    if (paymentStatus === 'paid') {
+      const reserved = await reserveDigitalInventoryForOrder(orderId);
+      if (!reserved.ok) {
+        state.saving = false;
+        state.error = reserved.message;
+        render();
+        return;
+      }
+    }
     await saveRecord('orders', orderId, { payment_status: paymentStatus, updated_at: today() }, (record) => {
       state.orders = state.orders.map((order) => order.id === orderId ? { ...order, ...record } : order);
+      if (state.modal?.type === 'orderDetail' && state.modal.order?.id === orderId) state.modal.order = { ...state.modal.order, ...record };
       writeJson('tokokit:demoOrders', state.orders);
     });
     const payment = state.payments.find((item) => item.order_id === orderId);
@@ -1316,15 +1760,141 @@
         writeJson('tokokit:demoPayments', state.payments);
       });
     }
+    if (paymentStatus === 'paid') {
+      await updateOrderStatus(orderId, 'processing', true);
+      await createFulfillmentLog(orderId, 'manual_paid', 'success', 'Pembayaran ditandai lunas dan stok digital diproses.');
+    }
+    state.notice = paymentStatus === 'paid' ? 'Pembayaran ditandai lunas. Stok digital sudah di-reserve jika diperlukan.' : 'Status pembayaran diperbarui.';
     render();
   }
 
-  async function updateOrderStatus(orderId, orderStatus) {
+  async function updateOrderStatus(orderId, orderStatus, silent) {
+    if (orderStatus === 'completed') {
+      const delivered = await markReservedInventoryDelivered(orderId);
+      if (!delivered.ok) {
+        state.error = delivered.message;
+        render();
+        return;
+      }
+    }
     await saveRecord('orders', orderId, { order_status: orderStatus, updated_at: today() }, (record) => {
       state.orders = state.orders.map((order) => order.id === orderId ? { ...order, ...record } : order);
+      if (state.modal?.type === 'orderDetail' && state.modal.order?.id === orderId) state.modal.order = { ...state.modal.order, ...record };
       writeJson('tokokit:demoOrders', state.orders);
     });
-    render();
+    if (!silent) {
+      state.notice = 'Status pesanan diperbarui.';
+      render();
+    }
+  }
+
+  async function markReservedInventoryDelivered(orderId) {
+    const reserved = state.inventoryItems.filter((item) => item.order_id === orderId && item.status === 'reserved');
+    for (const item of reserved) {
+      const payload = { status: 'delivered', delivered_at: today(), updated_at: today() };
+      if (supabaseClient) {
+        const { data, error } = await supabaseClient.from('inventory_items').update(payload).eq('id', item.id).select().single();
+        if (error) {
+          return { ok: false, message: error.message };
+        }
+        state.inventoryItems = state.inventoryItems.map((record) => record.id === item.id ? data : record);
+      } else {
+        state.inventoryItems = state.inventoryItems.map((record) => record.id === item.id ? { ...record, ...payload } : record);
+        writeJson('tokokit:demoInventoryItems', state.inventoryItems);
+      }
+      await createFulfillmentLog(orderId, 'manual_fulfill', 'delivered', `Stok digital ${item.label} ditandai delivered.`, item.id);
+    }
+    return { ok: true };
+  }
+
+  async function reserveDigitalInventoryForOrder(orderId) {
+    const order = state.orders.find((item) => item.id === orderId);
+    if (!order) return { ok: false, message: 'Order tidak ditemukan.' };
+    const items = state.orderItems.filter((item) => item.order_id === orderId && (item.fulfillment_type === 'digital' || productById(item.product_id)?.product_type === 'digital'));
+    if (!items.length) return { ok: true };
+    for (const orderItem of items) {
+      const existingReserved = state.inventoryItems.filter((item) => item.order_id === orderId && item.product_id === orderItem.product_id).length;
+      const needed = Number(orderItem.quantity || 1) - existingReserved;
+      if (needed <= 0) continue;
+      const available = state.inventoryItems
+        .filter((item) => item.product_id === orderItem.product_id && item.status === 'available' && !item.order_id)
+        .slice(0, needed);
+      if (available.length < needed) {
+        return { ok: false, message: `Stok digital untuk ${orderItem.product_name} kurang. Tambahkan stok available dulu di menu Inventori.` };
+      }
+      for (const inventoryItem of available) {
+        const payload = { status: 'reserved', order_id: orderId, buyer_email: order.buyer_email || '', updated_at: today() };
+        if (supabaseClient) {
+          const { data, error } = await supabaseClient.from('inventory_items').update(payload).eq('id', inventoryItem.id).select().single();
+          if (error) return { ok: false, message: error.message };
+          state.inventoryItems = state.inventoryItems.map((item) => item.id === inventoryItem.id ? data : item);
+        } else {
+          state.inventoryItems = state.inventoryItems.map((item) => item.id === inventoryItem.id ? { ...item, ...payload } : item);
+          writeJson('tokokit:demoInventoryItems', state.inventoryItems);
+        }
+        await createFulfillmentLog(orderId, 'inventory_reserved', 'reserved', `Stok digital ${inventoryItem.label} di-reserve untuk order ${order.order_number}.`, inventoryItem.id);
+      }
+      await createStockMovement(orderItem.product_id, 'payment_paid', -needed, `Reserve stok untuk order ${order.order_number}`, orderId);
+      await syncDigitalProductStock(orderItem.product_id);
+    }
+    return { ok: true };
+  }
+
+  async function createStockMovement(productId, movementType, quantityDelta, note, orderId) {
+    if (!quantityDelta) return;
+    const payload = {
+      tenant_id: state.store?.tenant_id || state.publicStore?.tenant_id,
+      store_id: state.store?.id || state.publicStore?.id,
+      product_id: productId,
+      order_id: orderId || null,
+      movement_type: movementType,
+      quantity_delta: quantityDelta,
+      note: note || '',
+      created_at: today()
+    };
+    if (supabaseClient && state.session) {
+      const { data, error } = await supabaseClient.from('stock_movements').insert(payload).select().single();
+      if (!error && data) state.stockMovements.unshift(data);
+    } else {
+      state.stockMovements.unshift({ ...payload, id: 'mov-' + Date.now() + Math.random() });
+      writeJson('tokokit:demoStockMovements', state.stockMovements);
+    }
+  }
+
+  async function createFulfillmentLog(orderId, action, status, message, inventoryItemId) {
+    const order = state.orders.find((item) => item.id === orderId);
+    const payload = {
+      tenant_id: order?.tenant_id || state.store?.tenant_id,
+      store_id: order?.store_id || state.store?.id,
+      order_id: orderId,
+      inventory_item_id: inventoryItemId || null,
+      action,
+      status,
+      message,
+      created_at: today()
+    };
+    if (supabaseClient && state.session) {
+      const { data, error } = await supabaseClient.from('fulfillment_logs').insert(payload).select().single();
+      if (!error && data) state.fulfillmentLogs.unshift(data);
+    } else {
+      state.fulfillmentLogs.unshift({ ...payload, id: 'ful-' + Date.now() + Math.random() });
+      writeJson('tokokit:demoFulfillmentLogs', state.fulfillmentLogs);
+    }
+  }
+
+  async function syncDigitalProductStock(productId) {
+    const product = productById(productId);
+    if (!product || effectiveFulfillment(product) !== 'digital') return;
+    const availableCount = state.inventoryItems.filter((item) => item.product_id === productId && item.status === 'available').length;
+    const payload = { stock: availableCount, updated_at: today() };
+    if (supabaseClient) {
+      const { data, error } = await supabaseClient.from('products').update(payload).eq('id', productId).select().single();
+      if (error) throw error;
+      state.products = state.products.map((item) => item.id === productId ? data : item);
+    } else {
+      state.products = state.products.map((item) => item.id === productId ? { ...item, ...payload } : item);
+      writeJson('tokokit:demoProducts', state.products);
+    }
   }
 
   async function saveRecord(table, id, payload, updateLocal) {
@@ -1349,6 +1919,12 @@
     const product = state.publicProducts.find((item) => item.id === productId);
     if (!product) return;
     const existing = state.cart.find((item) => item.id === productId);
+    const nextQty = (existing?.qty || 0) + 1;
+    if (!canAddProductToCart(product, nextQty)) {
+      state.error = `Stok digital ${product.name} sedang habis atau tidak cukup.`;
+      render();
+      return;
+    }
     if (existing) existing.qty += 1;
     else state.cart.push({ id: product.id, name: product.name, price: Number(product.price || 0), qty: 1, product_id: product.id, fulfillment_type: effectiveFulfillment(product) });
     persistCart();
@@ -1358,6 +1934,11 @@
   function buyNow(productId) {
     const product = state.publicProducts.find((item) => item.id === productId);
     if (!product) return;
+    if (!canAddProductToCart(product, 1)) {
+      state.error = `Stok digital ${product.name} sedang habis.`;
+      render();
+      return;
+    }
     state.cart = [{ id: product.id, name: product.name, price: Number(product.price || 0), qty: 1, product_id: product.id, fulfillment_type: effectiveFulfillment(product) }];
     state.modal = null;
     persistCart();
@@ -1386,6 +1967,14 @@
   function updateCartQty(productId, delta) {
     const item = state.cart.find((cartItem) => cartItem.id === productId);
     if (!item) return;
+    if (delta > 0) {
+      const product = state.publicProducts.find((record) => record.id === productId);
+      if (product && !canAddProductToCart(product, item.qty + delta)) {
+        state.error = `Stok digital ${product.name} tidak cukup untuk jumlah tersebut.`;
+        render();
+        return;
+      }
+    }
     item.qty += delta;
     if (item.qty <= 0) removeCartItem(productId);
     persistCart();
@@ -1401,6 +1990,12 @@
     const requiresAddress = cartRequiresAddress();
     const shippingFee = requiresAddress ? Number(store.shipping_fee || 0) : 0;
     const fulfillmentType = cartFulfillmentSummary();
+    const stockCheck = validateCartStock();
+    if (!stockCheck.ok) {
+      state.error = stockCheck.message;
+      render();
+      return;
+    }
     if (requiresAddress && !String(values.buyer_address || '').trim()) {
       state.error = 'Alamat pengiriman wajib diisi untuk produk delivery.';
       render();
@@ -1457,8 +2052,9 @@
           unit_price: item.price,
           total_price: item.price * item.qty
         }));
-        const { error: itemsError } = await supabaseClient.from('order_items').insert(items);
+        const { data: insertedItems, error: itemsError } = await supabaseClient.from('order_items').insert(items).select();
         if (itemsError) throw itemsError;
+        state.orderItems = [...(insertedItems || []), ...state.orderItems];
 
         const { error: paymentError } = await supabaseClient.from('payments').insert({
           tenant_id: store.tenant_id,
@@ -1474,6 +2070,23 @@
         const orders = readJson('tokokit:demoOrders', demo.orders);
         orders.unshift(createdOrder);
         writeJson('tokokit:demoOrders', orders);
+        const orderItems = readJson('tokokit:demoOrderItems', demo.orderItems);
+        state.cart.forEach((item, index) => {
+          orderItems.unshift({
+            id: 'itm-' + Date.now() + '-' + index,
+            tenant_id: store.tenant_id,
+            store_id: store.id,
+            order_id: createdOrder.id,
+            product_id: item.product_id,
+            product_name: item.name,
+            fulfillment_type: item.fulfillment_type || 'pickup',
+            quantity: item.qty,
+            unit_price: item.price,
+            total_price: item.price * item.qty,
+            created_at: today()
+          });
+        });
+        writeJson('tokokit:demoOrderItems', orderItems);
       }
 
       state.lastOrder = createdOrder;
@@ -1579,10 +2192,92 @@
       new: ['Baru', 'warning'], processing: ['Diproses', 'info'], shipped: ['Dikirim', 'primary'], completed: ['Selesai', 'success'], cancelled: ['Batal', 'danger'],
       manual_transfer: ['Transfer', 'primary'], qris: ['QRIS', 'primary'],
       physical: ['Physical', 'info'], preorder: ['Preorder', 'warning'], digital: ['Digital', 'primary'], service: ['Service', 'neutral'],
-      pickup: ['Pickup', 'success'], delivery: ['Delivery', 'info'], preorder_pickup: ['Preorder Pickup', 'warning'], mixed: ['Mixed', 'primary']
+      pickup: ['Pickup', 'success'], delivery: ['Delivery', 'info'], preorder_pickup: ['Preorder Pickup', 'warning'], mixed: ['Mixed', 'primary'],
+      available: ['Available', 'success'], reserved: ['Reserved', 'warning'], sold: ['Sold', 'primary'], delivered: ['Delivered', 'success']
     };
     const pair = labels[value] || [value || '-', 'neutral'];
     return badge(pair[0], pair[1]);
+  }
+
+  function filteredInventoryItems() {
+    const search = String(state.inventoryFilters.search || '').toLowerCase();
+    return state.inventoryItems.filter((item) => {
+      const product = productById(item.product_id);
+      const matchesSearch = !search || [item.label, item.payload, item.note, product?.name, product?.sku].some((value) => String(value || '').toLowerCase().includes(search));
+      const matchesProduct = !state.inventoryFilters.product_id || item.product_id === state.inventoryFilters.product_id;
+      const matchesStatus = !state.inventoryFilters.status || item.status === state.inventoryFilters.status;
+      return matchesSearch && matchesProduct && matchesStatus;
+    });
+  }
+
+  function productById(id) {
+    return state.products.find((product) => product.id === id) || state.publicProducts.find((product) => product.id === id);
+  }
+
+  function orderNumberById(id) {
+    return state.orders.find((order) => order.id === id)?.order_number || '';
+  }
+
+  function maskPayload(value) {
+    const text = String(value || '');
+    if (text.length <= 18) return text || '-';
+    return text.slice(0, 10) + '...' + text.slice(-5);
+  }
+
+  function inventoryStatusLabel(status) {
+    return ({ available: 'Available', reserved: 'Reserved', sold: 'Sold', delivered: 'Delivered', cancelled: 'Cancelled' })[status] || status || '-';
+  }
+
+  function stockMovementLabel(type) {
+    return ({ manual_adjustment: 'Manual adjustment', checkout_reserved: 'Checkout reserved', payment_paid: 'Payment paid', cancelled: 'Cancelled', refund: 'Refund' })[type] || type || '-';
+  }
+
+  function fulfillmentActionLabel(action) {
+    return ({ manual_paid: 'Manual paid', inventory_reserved: 'Inventory reserved', manual_fulfill: 'Manual fulfill', email_pending: 'Email pending', email_sent: 'Email sent', email_failed: 'Email failed' })[action] || action || '-';
+  }
+
+  function parseCsv(text) {
+    const rows = [];
+    let row = [];
+    let cell = '';
+    let quoted = false;
+    for (let i = 0; i < text.length; i += 1) {
+      const char = text[i];
+      const next = text[i + 1];
+      if (char === '"' && quoted && next === '"') {
+        cell += '"';
+        i += 1;
+      } else if (char === '"') {
+        quoted = !quoted;
+      } else if (char === ',' && !quoted) {
+        row.push(cell.trim());
+        cell = '';
+      } else if ((char === '\n' || char === '\r') && !quoted) {
+        if (char === '\r' && next === '\n') i += 1;
+        row.push(cell.trim());
+        if (row.some((part) => part !== '')) rows.push(row);
+        row = [];
+        cell = '';
+      } else {
+        cell += char;
+      }
+    }
+    row.push(cell.trim());
+    if (row.some((part) => part !== '')) rows.push(row);
+    return rows;
+  }
+
+  function normalizeHeader(value) {
+    return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+  }
+
+  function findProductForImport(productId, sku) {
+    return state.products.find((product) => product.id === productId) || state.products.find((product) => String(product.sku || '').toLowerCase() === String(sku || '').toLowerCase());
+  }
+
+  function csvCell(value) {
+    const text = String(value ?? '');
+    return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
   }
 
   function formValues(form) {
@@ -1613,6 +2308,22 @@
 
   function cartTotal() {
     return state.cart.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.qty || 1), 0);
+  }
+
+  function canAddProductToCart(product, requestedQty) {
+    if (effectiveFulfillment(product) !== 'digital') return true;
+    return Number(product.stock || 0) >= Number(requestedQty || 1);
+  }
+
+  function validateCartStock() {
+    for (const item of state.cart) {
+      const product = state.publicProducts.find((record) => record.id === item.product_id || record.id === item.id);
+      if (!product) return { ok: false, message: `${item.name} tidak ditemukan di toko. Hapus dari cart lalu pilih ulang.` };
+      if (effectiveFulfillment(product) === 'digital' && Number(product.stock || 0) < Number(item.qty || 1)) {
+        return { ok: false, message: `Stok digital ${product.name} tidak cukup. Tersedia ${Number(product.stock || 0)}, cart kamu ${Number(item.qty || 1)}.` };
+      }
+    }
+    return { ok: true };
   }
 
   function cartRequiresAddress() {

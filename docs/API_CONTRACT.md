@@ -10,6 +10,7 @@ Versi publik TokoKit memakai Supabase client SDK dari frontend. Tidak ada REST b
 /app/dashboard
 /app/store
 /app/products
+/app/inventory
 /app/orders
 /app/payments
 /app/settings
@@ -44,6 +45,9 @@ stores by profile.tenant_id
 products by profile.tenant_id
 orders by profile.tenant_id
 payments by profile.tenant_id
+inventory_items by profile.tenant_id
+stock_movements by profile.tenant_id
+fulfillment_logs by profile.tenant_id
 ```
 
 Frontend menulis:
@@ -51,8 +55,11 @@ Frontend menulis:
 ```text
 stores update
 products insert/update/archive
+inventory_items insert/update/delete
 orders update payment_status/order_status
 payments update status
+stock_movements insert
+fulfillment_logs insert
 ```
 
 ## Public Storefront Access
@@ -63,6 +70,8 @@ Public user membaca:
 stores where slug = :slug and is_active = true
 products where store_id = store.id and status = active
 ```
+
+Produk digital memakai `products.stock` sebagai angka stok publik. Isi stok rahasia tetap berada di `inventory_items` dan tidak boleh dibaca public user.
 
 Public user menulis saat checkout:
 
@@ -100,6 +109,16 @@ new
 processing
 shipped
 completed
+cancelled
+```
+
+Inventory item:
+
+```text
+available
+reserved
+sold
+delivered
 cancelled
 ```
 

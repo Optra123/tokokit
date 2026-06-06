@@ -45,7 +45,9 @@ Seller app:
 - Dashboard metrik pesanan/produk
 - Edit profil toko dan publish/unpublish toko
 - CRUD produk
+- Inventori stok digital dengan tabel seller, filter, CSV import/export, dan audit ringan
 - Daftar pesanan
+- Detail pesanan dengan item, buyer, fulfillment, dan stok digital yang di-reserve
 - Update status pembayaran dan status pesanan
 - Pengaturan backend/deployment
 
@@ -60,8 +62,9 @@ Public storefront:
 - Upload logo, banner, gambar produk, dan QRIS ke Supabase Storage
 - Cara penjualan per produk: digital, pickup, delivery, atau preorder pickup
 - Checkout adaptif: alamat hanya diminta jika ada produk delivery
+- Produk digital diblokir checkout jika stok siap kirim tidak cukup
 - Detail produk popup, tambah cart, dan beli sekarang
-- Pondasi auto-delivery produk digital: template email dan stok digital per produk
+- Pondasi auto-delivery produk digital: template email, inventory item, dan fulfillment log
 
 Fallback:
 
@@ -89,6 +92,7 @@ Route penting:
 /app/dashboard
 /app/store
 /app/products
+/app/inventory
 /app/orders
 /app/payments
 /store/senja-kopi
@@ -131,6 +135,7 @@ Gunakan anon key Supabase, bukan service role key.
 ## Roadmap Berikutnya
 
 - Order number generator berbasis database function
+- Webhook payment gateway untuk auto-mark paid dan auto-fulfillment digital
 - Email notification
 - WhatsApp template management
 - Xendit/Midtrans sandbox

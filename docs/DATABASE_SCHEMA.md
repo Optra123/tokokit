@@ -32,6 +32,8 @@ Field utama: `id`, `tenant_id`, `store_id`, `name`, `slug`, `sku`, `category`, `
 
 Field digital delivery: `digital_delivery_enabled`, `delivery_subject`, `delivery_message`, `digital_stock_notes`.
 
+Untuk produk digital, `stock` dipakai sebagai angka stok publik yang disinkronkan dari jumlah `inventory_items` berstatus `available`.
+
 Enum:
 
 - `product_type`: `physical`, `preorder`, `digital`, `service`
@@ -68,6 +70,30 @@ Status pembayaran manual/QRIS.
 
 Field utama: `id`, `tenant_id`, `store_id`, `order_id`, `method`, `amount`, `status`, `paid_at`, `raw_payload`.
 
+### inventory_items
+
+Stok digital siap kirim seperti voucher, akun, license key, atau payload digital lain.
+
+Field utama: `id`, `tenant_id`, `store_id`, `product_id`, `order_id`, `label`, `payload`, `status`, `buyer_email`, `note`, `delivered_at`.
+
+Enum:
+
+- `status`: `available`, `reserved`, `sold`, `delivered`, `cancelled`
+
+Public buyer tidak boleh membaca tabel ini. Storefront hanya memakai angka `products.stock`.
+
+### stock_movements
+
+Riwayat perubahan stok untuk audit ringan.
+
+Field utama: `id`, `tenant_id`, `store_id`, `product_id`, `order_id`, `movement_type`, `quantity_delta`, `note`, `created_at`.
+
+### fulfillment_logs
+
+Catatan proses fulfillment order, termasuk reserve stok digital dan status pengiriman manual/otomatis.
+
+Field utama: `id`, `tenant_id`, `store_id`, `order_id`, `inventory_item_id`, `action`, `status`, `message`, `created_at`.
+
 ### settings
 
 Key-value setting per tenant/store untuk fitur lanjutan.
@@ -84,6 +110,7 @@ RLS diaktifkan untuk semua tabel.
 - Public user hanya bisa membaca store aktif dan produk aktif.
 - Public user hanya bisa membuat customer, order, order items, dan payment untuk store aktif.
 - Public user tidak bisa update/delete data setelah checkout.
+- Public user tidak bisa membaca inventory digital, stock movements, atau fulfillment logs.
 
 ## Legacy Schema
 

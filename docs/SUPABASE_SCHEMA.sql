@@ -148,6 +148,46 @@ create table if not exists public.payments (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.inventory_items (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid not null references public.tenants(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  product_id uuid not null references public.products(id) on delete cascade,
+  order_id uuid references public.orders(id) on delete set null,
+  label text not null,
+  payload text not null,
+  status text not null default 'available' check (status in ('available', 'reserved', 'sold', 'delivered', 'cancelled')),
+  buyer_email text,
+  note text,
+  delivered_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.stock_movements (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid not null references public.tenants(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  product_id uuid references public.products(id) on delete set null,
+  order_id uuid references public.orders(id) on delete set null,
+  movement_type text not null check (movement_type in ('manual_adjustment', 'checkout_reserved', 'payment_paid', 'cancelled', 'refund')),
+  quantity_delta integer not null default 0,
+  note text,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.fulfillment_logs (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid not null references public.tenants(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  order_id uuid references public.orders(id) on delete cascade,
+  inventory_item_id uuid references public.inventory_items(id) on delete set null,
+  action text not null,
+  status text not null default 'pending',
+  message text,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists public.settings (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null references public.tenants(id) on delete cascade,
@@ -177,6 +217,10 @@ create index if not exists idx_stores_slug on public.stores(slug);
 create index if not exists idx_products_store_status on public.products(store_id, status);
 create index if not exists idx_orders_store_created on public.orders(store_id, created_at desc);
 create index if not exists idx_payments_order on public.payments(order_id);
+create index if not exists idx_inventory_product_status on public.inventory_items(product_id, status);
+create index if not exists idx_inventory_order on public.inventory_items(order_id);
+create index if not exists idx_stock_movements_tenant_created on public.stock_movements(tenant_id, created_at desc);
+create index if not exists idx_fulfillment_logs_order on public.fulfillment_logs(order_id, created_at desc);
 
 alter table public.stores add column if not exists fulfillment_mode text not null default 'pickup';
 alter table public.stores add column if not exists shipping_fee numeric(14,2) not null default 0;
@@ -190,6 +234,9 @@ alter table public.products add column if not exists delivery_message text;
 alter table public.products add column if not exists digital_stock_notes text;
 alter table public.orders add column if not exists fulfillment_type text not null default 'pickup';
 alter table public.order_items add column if not exists fulfillment_type text not null default 'pickup';
+alter table public.inventory_items add column if not exists buyer_email text;
+alter table public.inventory_items add column if not exists note text;
+alter table public.inventory_items add column if not exists delivered_at timestamptz;
 
 alter table public.tenants enable row level security;
 alter table public.profiles enable row level security;
@@ -199,6 +246,9 @@ alter table public.customers enable row level security;
 alter table public.orders enable row level security;
 alter table public.order_items enable row level security;
 alter table public.payments enable row level security;
+alter table public.inventory_items enable row level security;
+alter table public.stock_movements enable row level security;
+alter table public.fulfillment_logs enable row level security;
 alter table public.settings enable row level security;
 alter table public.audit_logs enable row level security;
 
@@ -230,6 +280,9 @@ drop policy if exists "seller can manage own order items" on public.order_items;
 drop policy if exists "public can create order items for active stores" on public.order_items;
 drop policy if exists "seller can manage own payments" on public.payments;
 drop policy if exists "public can create unpaid payments for active stores" on public.payments;
+drop policy if exists "seller can manage own inventory items" on public.inventory_items;
+drop policy if exists "seller can manage own stock movements" on public.stock_movements;
+drop policy if exists "seller can manage own fulfillment logs" on public.fulfillment_logs;
 drop policy if exists "seller can manage own settings" on public.settings;
 drop policy if exists "seller can read own audit logs" on public.audit_logs;
 drop policy if exists "seller can create own audit logs" on public.audit_logs;
@@ -355,6 +408,21 @@ with check (
     and stores.is_active = true
   )
 );
+
+create policy "seller can manage own inventory items" on public.inventory_items
+for all to authenticated
+using (tenant_id = public.current_tenant_id())
+with check (tenant_id = public.current_tenant_id());
+
+create policy "seller can manage own stock movements" on public.stock_movements
+for all to authenticated
+using (tenant_id = public.current_tenant_id())
+with check (tenant_id = public.current_tenant_id());
+
+create policy "seller can manage own fulfillment logs" on public.fulfillment_logs
+for all to authenticated
+using (tenant_id = public.current_tenant_id())
+with check (tenant_id = public.current_tenant_id());
 
 create policy "seller can manage own settings" on public.settings
 for all to authenticated

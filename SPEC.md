@@ -32,6 +32,7 @@ Seller dapat:
 - Mengatur profil toko
 - Publish/unpublish toko
 - Mengelola produk
+- Mengelola stok digital siap kirim
 - Melihat pesanan
 - Mengubah status pembayaran
 - Mengubah status pesanan
@@ -93,12 +94,26 @@ Content:
 - Archive product action
 - Status: active, draft, archived
 
+### Inventori
+
+Content:
+
+- Stok digital per produk
+- Status inventory: available, reserved, sold, delivered, cancelled
+- Tambah/edit/hapus stok digital
+- CSV import/export untuk spreadsheet
+- Riwayat perubahan stok
+
 ### Pesanan
 
 Content:
 
 - Order metrics
 - Orders table
+- Order detail modal
+- Order items dan data buyer
+- Stok digital yang di-reserve untuk order
+- Fulfillment logs
 - Payment status selector
 - Order status selector
 
@@ -150,6 +165,8 @@ Content:
 - Order summary
 - Submit order
 
+Checkout memblokir pembelian produk digital jika stok available tidak cukup.
+
 ### Success
 
 Route: `/success/:orderNumber`
@@ -176,6 +193,9 @@ Supabase tables:
 - orders
 - order_items
 - payments
+- inventory_items
+- stock_movements
+- fulfillment_logs
 - settings
 - audit_logs
 
@@ -191,7 +211,10 @@ Frontend v1 dianggap selesai jika:
 - Seller bisa mengatur cara penjualan per produk: digital, ambil di toko, delivery, atau preorder pickup.
 - Checkout hanya meminta alamat jika cart berisi produk delivery.
 - Buyer bisa lihat detail produk, tambah ke cart, atau beli langsung.
-- Produk digital punya field persiapan auto-delivery: subject email, pesan email, dan stok digital siap kirim.
+- Produk digital punya field persiapan auto-delivery dan stok rahasia di inventory seller.
+- Seller bisa import/export stok digital CSV.
+- Checkout digital memblokir order jika stok siap kirim tidak cukup.
+- Seller mark paid bisa me-reserve stok digital dan membuat fulfillment log.
 - Seller bisa register/login.
 - Seller bisa publish toko.
 - Seller bisa CRUD produk.
