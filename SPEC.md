@@ -18,7 +18,7 @@ Versi pertama harus bisa dipakai sebagai produk publik sederhana:
 - Landing page utama `/` memperkenalkan TokoKit untuk seller.
 - Landing page memakai hero visual, logo integrasi, preview dashboard, feature cards, dan CTA seller.
 - Storefront buyer tidak menampilkan tombol seller login/register.
-- Payment v1 memakai transfer manual dan QRIS statis
+- Payment v1 memakai transfer manual, QRIS statis, payment link gateway, dan webhook serverless
 
 ## 3. User Roles
 
@@ -86,6 +86,7 @@ Content:
 - Payment instruction
 - Payment gateway provider
 - Pakasir project/slug atau custom checkout URL
+- Midtrans/Xendit serverless payment link via Vercel env vars
 - Publish status
 
 ### Produk
@@ -225,7 +226,8 @@ Frontend v1 dianggap selesai jika:
 - Checkout digital memblokir order jika stok siap kirim tidak cukup.
 - Seller mark paid bisa me-reserve stok digital dan membuat fulfillment log.
 - Produk digital tidak bisa memakai stok manual dari form produk; stok publik berasal dari inventory item `available`.
-- Pakasir/custom payment link bisa muncul di success page. Verifikasi paid otomatis untuk gateway penuh butuh backend webhook.
+- Pakasir/custom payment link bisa muncul di success page. Midtrans/Xendit payment link dibuat lewat Vercel Serverless Functions.
+- Webhook payment gateway dapat menandai order paid otomatis dan reserve stok digital.
 - Seller bisa register/login.
 - Seller bisa publish toko.
 - Seller bisa CRUD produk.

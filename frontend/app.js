@@ -1131,6 +1131,7 @@
   function renderSuccess() {
     const store = state.publicStore || demo.store;
     const order = state.lastOrder || { order_number: state.route.orderNumber, buyer_name: '-', total_amount: cartTotal(), payment_status: 'unpaid' };
+    const paymentUrl = order.checkout_url || gatewayPaymentUrl(store, order);
     const content = `
       <div class="card" style="max-width:860px;margin:0 auto;text-align:center">
         <div class="success-icon">OK</div>
@@ -1155,7 +1156,7 @@
         <br>
         <div class="page-actions" style="justify-content:center">
           <button class="btn" onclick="TokoKit.go('/store/${store.slug}')">Kembali ke Toko</button>
-          ${gatewayPaymentUrl(store, order) ? `<a class="btn btn-secondary" href="${escapeAttr(gatewayPaymentUrl(store, order))}" target="_blank" rel="noopener">Bayar via ${escapeHtml(gatewayLabel(gatewayProvider(store)))}</a>` : ''}
+          ${paymentUrl ? `<a class="btn btn-secondary" href="${escapeAttr(paymentUrl)}" target="_blank" rel="noopener">Bayar via ${escapeHtml(gatewayLabel(gatewayProvider(store)))}</a>` : ''}
           <button class="btn btn-primary" onclick="TokoKit.openWhatsApp('${escapeAttr(order.order_number || '')}')">Konfirmasi via WhatsApp</button>
         </div>
       </div>
@@ -2273,6 +2274,7 @@
           checkout_url: gatewayPaymentUrl(store, createdOrder)
         });
         if (paymentError) throw paymentError;
+        createdOrder = await createGatewayPayment(createdOrder, store);
       } else {
         createdOrder = { ...order, id: 'ord-' + Date.now(), store_slug: store.slug };
         const orders = readJson('tokokit:demoOrders', demo.orders);
@@ -2311,6 +2313,35 @@
     }
   }
 
+  async function createGatewayPayment(order, store) {
+    const provider = gatewayProvider(store);
+    if (provider === 'manual') return order;
+
+    const localUrl = gatewayPaymentUrl(store, order);
+    if (!supabaseClient) return { ...order, checkout_url: localUrl };
+
+    try {
+      const response = await fetch('/api/payment-create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_number: order.order_number })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.ok) throw new Error(data.error || 'Server payment API belum tersedia.');
+      return {
+        ...order,
+        checkout_url: data.checkout_url || localUrl || '',
+        gateway_provider: data.provider || provider
+      };
+    } catch (error) {
+      return {
+        ...order,
+        checkout_url: localUrl || '',
+        payment_link_error: error.message || 'Payment link belum bisa dibuat.'
+      };
+    }
+  }
+
   function openWhatsApp(orderNumber) {
     const store = state.publicStore || state.store || demo.store;
     const number = (store.whatsapp || '').replace(/\D/g, '');
@@ -2334,7 +2365,7 @@
     const method = order?.payment_method || 'manual_transfer';
     const gateway = gatewayProvider(store);
     if (context === 'success' && gateway !== 'manual') {
-      const url = gatewayPaymentUrl(store, order);
+      const url = order.checkout_url || gatewayPaymentUrl(store, order);
       return `
         <p class="card-desc">${gatewayCopy(gateway, Boolean(url))}</p>
         <div class="list">
@@ -2342,7 +2373,8 @@
           <div class="list-row"><span>Total</span><b>${currency(order.total_amount)}</b></div>
           <div class="list-row"><span>Order ID</span><b>${escapeHtml(order.order_number || '-')}</b></div>
         </div>
-        ${!url ? `<div class="notice" style="margin-top:12px">Gateway ini belum punya checkout link frontend. Gunakan instruksi manual dulu atau hubungkan backend webhook.</div>` : ''}
+        ${order.payment_link_error ? `<div class="notice notice-danger" style="margin-top:12px">${escapeHtml(order.payment_link_error)} Gunakan instruksi manual atau hubungi toko.</div>` : ''}
+        ${!url && !order.payment_link_error ? `<div class="notice" style="margin-top:12px">Payment link belum tersedia. Gunakan instruksi manual dulu atau hubungi toko.</div>` : ''}
         <p class="card-desc" style="margin-top:12px">${escapeHtml(store.payment_instruction || 'Setelah membayar, status akan dikonfirmasi oleh toko.')}</p>
       `;
     }

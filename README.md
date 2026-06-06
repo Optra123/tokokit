@@ -7,7 +7,7 @@ Project ini sekarang diarahkan sebagai produk publik berbasis:
 - Frontend SPA: HTML, CSS, Vanilla JavaScript
 - Hosting: Vercel static hosting
 - Backend: Supabase Auth + Supabase Postgres
-- Payment v1: transfer manual, QRIS statis, konfirmasi WhatsApp
+- Payment v1: transfer manual, QRIS statis, payment link gateway, dan webhook serverless
 - Legacy reference: Google Apps Script tetap disimpan di `apps-script/`
 
 ## Struktur Project
@@ -19,6 +19,11 @@ tokokit/
 |   +-- styles.css
 |   +-- config.js
 |   +-- app.js
++-- api/
+|   +-- payment-create.js
+|   +-- webhook-midtrans.js
+|   +-- webhook-xendit.js
+|   +-- webhook-gateway.js
 +-- docs/
 |   +-- SUPABASE_SCHEMA.sql
 |   +-- API_CONTRACT.md
@@ -72,7 +77,8 @@ Public storefront:
 - Detail produk popup, tambah cart, dan beli sekarang
 - Storefront visual dengan banner hero, kategori, store info band, dan product card animatif
 - Pondasi auto-delivery produk digital: template email, inventory item, dan fulfillment log
-- Payment link dinamis untuk Pakasir/custom link; Midtrans/Xendit butuh backend webhook sebelum auto-paid
+- Payment link dinamis untuk Pakasir/custom link, Midtrans, dan Xendit
+- Webhook serverless untuk auto-mark paid dan reserve stok digital setelah pembayaran gateway sukses
 
 Fallback:
 
@@ -105,6 +111,8 @@ Route penting:
 /app/payments
 /store/senja-kopi
 ```
+
+Catatan: `node dev-server.js` hanya menjalankan frontend statis. Endpoint `/api/*` berjalan di Vercel Functions, jadi payment gateway/serverless webhook diuji lewat Vercel deploy atau `vercel dev`.
 
 ## Setup Supabase
 
@@ -143,8 +151,8 @@ Gunakan anon key Supabase, bukan service role key.
 ## Roadmap Berikutnya
 
 - Order number generator berbasis database function
-- Webhook payment gateway untuk auto-mark paid dan auto-fulfillment digital
-- Endpoint serverless untuk Midtrans/Xendit
+- Auto-delivery email produk digital setelah gateway paid
+- Webhook idempotency dan audit lebih detail
 - Email notification
 - WhatsApp template management
 - Xendit/Midtrans sandbox

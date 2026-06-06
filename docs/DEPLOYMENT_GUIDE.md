@@ -136,7 +136,109 @@ http://localhost:8080/register
    - `/checkout/*`
    - `/success/*`
 
-## 6. Smoke Test
+## 6. Setup Vercel Environment Variables
+
+Serverless API `/api/*` butuh environment variables di Vercel.
+
+1. Buka `https://vercel.com/dashboard`.
+2. Klik project TokoKit.
+3. Klik tab `Settings`.
+4. Klik menu `Environment Variables`.
+5. Tambahkan variable berikut untuk `Production`, `Preview`, dan `Development` jika ingin:
+
+```text
+SUPABASE_URL=https://PROJECT_ID.supabase.co
+SUPABASE_SERVICE_KEY=SUPABASE_SERVICE_ROLE_OR_SECRET_KEY
+PUBLIC_SITE_URL=https://domain-tokokit-kamu.vercel.app
+```
+
+6. Jika memakai Midtrans, tambahkan:
+
+```text
+MIDTRANS_SERVER_KEY=SERVER_KEY_DARI_MIDTRANS
+MIDTRANS_IS_PRODUCTION=false
+```
+
+Untuk mode live nanti ubah `MIDTRANS_IS_PRODUCTION=true`.
+
+7. Jika memakai Xendit, tambahkan:
+
+```text
+XENDIT_SECRET_KEY=SECRET_KEY_DARI_XENDIT
+XENDIT_WEBHOOK_TOKEN=WEBHOOK_VERIFICATION_TOKEN_DARI_XENDIT
+```
+
+8. Jika memakai provider/custom webhook, tambahkan:
+
+```text
+TOKOKIT_GATEWAY_WEBHOOK_SECRET=isi-random-panjang
+```
+
+9. Klik `Save`.
+10. Buka tab `Deployments`.
+11. Klik deployment terbaru.
+12. Klik menu tiga titik.
+13. Klik `Redeploy`.
+
+Jangan pernah menaruh `SUPABASE_SERVICE_KEY`, `MIDTRANS_SERVER_KEY`, atau `XENDIT_SECRET_KEY` di `frontend/config.js`.
+
+## 7. Setup Webhook Payment Gateway
+
+Webhook membuat status order otomatis berubah ke paid dan stok digital di-reserve.
+
+Midtrans:
+
+1. Buka dashboard Midtrans.
+2. Masuk ke project/environment yang dipakai.
+3. Buka menu payment notification/webhook settings.
+4. Isi notification URL:
+
+```text
+https://domain-tokokit-kamu.vercel.app/api/webhook-midtrans
+```
+
+5. Simpan.
+6. Pastikan `MIDTRANS_SERVER_KEY` di Vercel sama dengan environment Midtrans tersebut.
+
+Xendit:
+
+1. Buka dashboard Xendit.
+2. Buka `Developers` atau `Settings`.
+3. Buka `Webhooks`.
+4. Tambahkan webhook URL:
+
+```text
+https://domain-tokokit-kamu.vercel.app/api/webhook-xendit
+```
+
+5. Aktifkan event invoice/payment paid.
+6. Copy verification token/secret ke Vercel.
+
+Provider custom/Pakasir jika tersedia webhook:
+
+1. Arahkan webhook ke:
+
+```text
+https://domain-tokokit-kamu.vercel.app/api/webhook-gateway
+```
+
+2. Pastikan request mengirim header:
+
+```text
+x-tokokit-secret: nilai_TOKOKIT_GATEWAY_WEBHOOK_SECRET
+```
+
+3. Body minimal harus berisi:
+
+```json
+{
+  "order_number": "TK-123456",
+  "status": "paid",
+  "provider": "pakasir"
+}
+```
+
+## 8. Smoke Test
 
 Setelah deploy:
 
@@ -149,15 +251,23 @@ Setelah deploy:
 7. Tambahkan produk ke cart.
 8. Checkout sebagai buyer.
 9. Pastikan order muncul di `/app/orders`.
-10. Ubah payment status menjadi `paid`.
+10. Jika manual payment, ubah payment status menjadi `paid`.
+11. Jika gateway aktif, buka payment link dari success page dan bayar di sandbox.
+12. Refresh `/app/orders`.
+13. Pastikan payment berubah paid otomatis setelah webhook masuk.
+14. Untuk produk digital, buka `/app/inventory` dan pastikan stok berubah dari `available` menjadi `reserved`.
 
-## 7. Legacy Apps Script
+Catatan local development: `node dev-server.js` hanya melayani frontend statis, bukan Vercel API `/api/*`. Untuk menguji serverless API secara lokal gunakan Vercel CLI (`vercel dev`) atau langsung test setelah deploy ke Vercel.
+
+## 9. Legacy Apps Script
 
 Folder `apps-script/` tetap disimpan sebagai arsip backend prototype Google Sheets. Jalur deployment utama versi publik adalah Supabase + Vercel.
 
-## 8. Production Notes
+## 10. Production Notes
 
 - Supabase anon key aman dipakai di frontend selama RLS benar.
 - Jangan pernah taruh service role key di frontend.
 - Upload logo, produk, banner, dan QRIS sudah memakai bucket Supabase Storage `tokokit-assets`.
 - Untuk payment gateway, mulai dari sandbox Xendit/Midtrans setelah manual payment stabil.
+- Secret key payment gateway hanya boleh berada di Vercel Environment Variables.
+- Uji semua payment gateway di sandbox sebelum live.
