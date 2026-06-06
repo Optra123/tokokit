@@ -37,6 +37,7 @@ Seller dapat:
 - Mengubah status pembayaran
 - Mengubah status pesanan
 - Mengatur rekening, QRIS URL, dan instruksi pembayaran
+- Memilih provider payment gateway: manual, Pakasir, custom link, Midtrans, atau Xendit
 
 ### Buyer
 
@@ -82,6 +83,8 @@ Content:
 - QRIS image URL
 - QRIS image upload
 - Payment instruction
+- Payment gateway provider
+- Pakasir project/slug atau custom checkout URL
 - Publish status
 
 ### Produk
@@ -164,6 +167,7 @@ Content:
 - Payment method: manual_transfer or qris
 - Order summary
 - Submit order
+- Payment link dinamis jika toko memakai Pakasir atau custom link
 
 Checkout memblokir pembelian produk digital jika stok available tidak cukup.
 
@@ -215,6 +219,8 @@ Frontend v1 dianggap selesai jika:
 - Seller bisa import/export stok digital CSV.
 - Checkout digital memblokir order jika stok siap kirim tidak cukup.
 - Seller mark paid bisa me-reserve stok digital dan membuat fulfillment log.
+- Produk digital tidak bisa memakai stok manual dari form produk; stok publik berasal dari inventory item `available`.
+- Pakasir/custom payment link bisa muncul di success page. Verifikasi paid otomatis untuk gateway penuh butuh backend webhook.
 - Seller bisa register/login.
 - Seller bisa publish toko.
 - Seller bisa CRUD produk.

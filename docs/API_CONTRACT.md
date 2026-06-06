@@ -62,6 +62,49 @@ stock_movements insert
 fulfillment_logs insert
 ```
 
+Inventory import mendukung input frontend:
+
+```text
+CSV file upload
+Spreadsheet paste
+Public CSV URL
+```
+
+Header inventory import:
+
+```text
+product_sku,product_id,label,payload,status,note
+```
+
+## Payment Gateway
+
+Provider yang bisa disimpan di `stores.payment_gateway_provider`:
+
+```text
+manual
+pakasir
+custom_link
+midtrans
+xendit
+```
+
+Frontend dapat membuat payment link untuk:
+
+```text
+pakasir
+custom_link
+```
+
+Midtrans dan Xendit tidak boleh memakai secret key di frontend. Keduanya harus memakai backend/serverless endpoint untuk membuat transaksi dan menerima webhook.
+
+Payment row menyimpan:
+
+```text
+gateway_provider
+gateway_reference
+checkout_url
+```
+
 ## Public Storefront Access
 
 Public user membaca:

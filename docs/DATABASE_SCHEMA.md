@@ -22,7 +22,14 @@ Data toko publik dan pengaturan pembayaran manual.
 
 Field utama: `id`, `tenant_id`, `slug`, `name`, `description`, `business_type`, `whatsapp`, `email`, `address`, `brand_color`, `logo_url`, `banner_url`, `bank_name`, `bank_account_number`, `bank_account_name`, `qris_image_url`, `payment_instruction`, `is_active`.
 
-Field operasional: `fulfillment_mode`, `shipping_fee`, `pickup_note`, `pakasir_slug`, `payment_gateway_enabled`.
+Field operasional: `fulfillment_mode`, `shipping_fee`, `pickup_note`, `pakasir_slug`, `payment_gateway_enabled`, `payment_gateway_provider`, `payment_gateway_project_id`, `payment_gateway_checkout_url`.
+
+Provider payment gateway v1:
+
+- `manual`: transfer/QRIS manual
+- `pakasir`: payment link Pakasir dari project slug
+- `custom_link`: base URL checkout eksternal dengan query `order_id` dan `amount`
+- `midtrans` / `xendit`: pilihan konfigurasi awal, butuh backend webhook sebelum bisa otomatis
 
 ### products
 
@@ -68,7 +75,7 @@ Field utama: `id`, `tenant_id`, `store_id`, `order_id`, `product_id`, `product_n
 
 Status pembayaran manual/QRIS.
 
-Field utama: `id`, `tenant_id`, `store_id`, `order_id`, `method`, `amount`, `status`, `paid_at`, `raw_payload`.
+Field utama: `id`, `tenant_id`, `store_id`, `order_id`, `method`, `amount`, `status`, `gateway_provider`, `gateway_reference`, `checkout_url`, `paid_at`, `raw_payload`.
 
 ### inventory_items
 

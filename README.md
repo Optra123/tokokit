@@ -24,6 +24,7 @@ tokokit/
 |   +-- API_CONTRACT.md
 |   +-- DATABASE_SCHEMA.md
 |   +-- DEPLOYMENT_GUIDE.md
+|   +-- INVENTORY_SPREADSHEET_GUIDE.md
 |   +-- PORTFOLIO_CASE_STUDY.md
 |   +-- CODEX_PROMPTS.md
 +-- apps-script/
@@ -46,9 +47,11 @@ Seller app:
 - Edit profil toko dan publish/unpublish toko
 - CRUD produk
 - Inventori stok digital dengan tabel seller, filter, CSV import/export, dan audit ringan
+- Import inventori dari upload CSV, paste spreadsheet, atau URL CSV publik Google Sheets
 - Daftar pesanan
 - Detail pesanan dengan item, buyer, fulfillment, dan stok digital yang di-reserve
 - Update status pembayaran dan status pesanan
+- Pilihan payment gateway: manual, Pakasir, custom link, Midtrans, Xendit
 - Pengaturan backend/deployment
 
 Public storefront:
@@ -63,8 +66,10 @@ Public storefront:
 - Cara penjualan per produk: digital, pickup, delivery, atau preorder pickup
 - Checkout adaptif: alamat hanya diminta jika ada produk delivery
 - Produk digital diblokir checkout jika stok siap kirim tidak cukup
+- Stok produk digital dihitung dari Inventori, bukan input stok manual di form produk
 - Detail produk popup, tambah cart, dan beli sekarang
 - Pondasi auto-delivery produk digital: template email, inventory item, dan fulfillment log
+- Payment link dinamis untuk Pakasir/custom link; Midtrans/Xendit butuh backend webhook sebelum auto-paid
 
 Fallback:
 
@@ -136,6 +141,7 @@ Gunakan anon key Supabase, bukan service role key.
 
 - Order number generator berbasis database function
 - Webhook payment gateway untuk auto-mark paid dan auto-fulfillment digital
+- Endpoint serverless untuk Midtrans/Xendit
 - Email notification
 - WhatsApp template management
 - Xendit/Midtrans sandbox

@@ -56,6 +56,9 @@ create table if not exists public.stores (
   pickup_note text,
   pakasir_slug text,
   payment_gateway_enabled boolean not null default false,
+  payment_gateway_provider text not null default 'manual' check (payment_gateway_provider in ('manual', 'pakasir', 'custom_link', 'midtrans', 'xendit')),
+  payment_gateway_project_id text,
+  payment_gateway_checkout_url text,
   is_active boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -142,6 +145,9 @@ create table if not exists public.payments (
   method text not null default 'manual_transfer' check (method in ('manual_transfer', 'qris')),
   amount numeric(14,2) not null default 0,
   status text not null default 'unpaid' check (status in ('unpaid', 'paid', 'failed')),
+  gateway_provider text not null default 'manual',
+  gateway_reference text,
+  checkout_url text,
   paid_at timestamptz,
   raw_payload jsonb,
   created_at timestamptz not null default now(),
@@ -227,6 +233,9 @@ alter table public.stores add column if not exists shipping_fee numeric(14,2) no
 alter table public.stores add column if not exists pickup_note text;
 alter table public.stores add column if not exists pakasir_slug text;
 alter table public.stores add column if not exists payment_gateway_enabled boolean not null default false;
+alter table public.stores add column if not exists payment_gateway_provider text not null default 'manual';
+alter table public.stores add column if not exists payment_gateway_project_id text;
+alter table public.stores add column if not exists payment_gateway_checkout_url text;
 alter table public.products add column if not exists fulfillment_type text not null default 'pickup';
 alter table public.products add column if not exists digital_delivery_enabled boolean not null default false;
 alter table public.products add column if not exists delivery_subject text;
@@ -237,6 +246,9 @@ alter table public.order_items add column if not exists fulfillment_type text no
 alter table public.inventory_items add column if not exists buyer_email text;
 alter table public.inventory_items add column if not exists note text;
 alter table public.inventory_items add column if not exists delivered_at timestamptz;
+alter table public.payments add column if not exists gateway_provider text not null default 'manual';
+alter table public.payments add column if not exists gateway_reference text;
+alter table public.payments add column if not exists checkout_url text;
 
 alter table public.tenants enable row level security;
 alter table public.profiles enable row level security;

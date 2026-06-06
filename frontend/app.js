@@ -41,6 +41,7 @@
     lastOrder: readJson('tokokit:lastOrder', null),
     authForm: { full_name: '', email: '', password: '' },
     inventoryFilters: { search: '', product_id: '', status: '' },
+    inventoryImport: { paste: '', url: readJson('tokokit:inventoryCsvUrl', '') },
     notice: '',
     error: '',
     modal: null
@@ -72,6 +73,9 @@
       pickup_note: 'Ambil pesanan di toko setelah pembayaran dikonfirmasi.',
       pakasir_slug: '',
       payment_gateway_enabled: false,
+      payment_gateway_provider: 'manual',
+      payment_gateway_project_id: '',
+      payment_gateway_checkout_url: '',
       is_active: true
     },
     products: [
@@ -128,7 +132,12 @@
     deleteInventoryItem,
     updateInventoryFilter,
     handleInventoryImport,
+    handleInventoryPaste,
+    importInventoryFromUrl,
+    updateInventoryImportField,
     exportInventoryCsv,
+    downloadInventoryTemplate,
+    copyInventoryTemplate,
     openOrderDetail,
     updatePaymentStatus,
     updateOrderStatus,
@@ -711,12 +720,19 @@
                 <option value="preorder_pickup" ${store.fulfillment_mode === 'preorder_pickup' ? 'selected' : ''}>Preorder ambil di toko</option>
               </select></label>
               ${input('shipping_fee', 'Ongkir default', store.shipping_fee || 0, false, 'number')}
-              ${input('pakasir_slug', 'Slug Pakasir opsional', store.pakasir_slug || '')}
-              <label class="field"><span class="label">Payment gateway</span><select class="select" name="payment_gateway_enabled">
-                <option value="false" ${!store.payment_gateway_enabled ? 'selected' : ''}>Manual dulu</option>
-                <option value="true" ${store.payment_gateway_enabled ? 'selected' : ''}>Aktifkan link Pakasir</option>
+              <label class="field"><span class="label">Payment gateway</span><select class="select" name="payment_gateway_provider">
+                <option value="manual" ${gatewayProvider(store) === 'manual' ? 'selected' : ''}>Manual: transfer/QRIS statis</option>
+                <option value="pakasir" ${gatewayProvider(store) === 'pakasir' ? 'selected' : ''}>Pakasir payment link</option>
+                <option value="custom_link" ${gatewayProvider(store) === 'custom_link' ? 'selected' : ''}>Custom payment link</option>
+                <option value="midtrans" ${gatewayProvider(store) === 'midtrans' ? 'selected' : ''}>Midtrans (butuh backend)</option>
+                <option value="xendit" ${gatewayProvider(store) === 'xendit' ? 'selected' : ''}>Xendit (butuh backend)</option>
               </select></label>
+              ${input('pakasir_slug', 'Project/slug Pakasir', store.pakasir_slug || store.payment_gateway_project_id || '')}
+              ${input('payment_gateway_checkout_url', 'Base URL custom payment', store.payment_gateway_checkout_url || '')}
+              <input type="hidden" name="payment_gateway_enabled" value="${gatewayProvider(store) === 'manual' ? 'false' : 'true'}">
             </div>
+            <br>
+            <div class="notice">Provider seperti Midtrans/Xendit butuh backend webhook agar status pembayaran bisa otomatis. Jangan pernah menyimpan secret key payment gateway di frontend.</div>
             <br>
             ${textarea('pickup_note', 'Catatan pickup / pengiriman digital', store.pickup_note || '')}
           </div>
@@ -781,6 +797,7 @@
     const filtered = filteredInventoryItems();
     const actions = `
       <button class="btn btn-secondary" onclick="TokoKit.exportInventoryCsv()">Export CSV</button>
+      <button class="btn" onclick="TokoKit.downloadInventoryTemplate()">Template</button>
       <button class="btn btn-primary" onclick="TokoKit.openInventoryModal()">Tambah Stok</button>
     `;
     const content = `
@@ -810,12 +827,38 @@
         <div class="grid">
           <div class="card">
             <h3 class="card-title">Import dari Spreadsheet</h3>
-            <p class="card-desc">Export Google Sheets atau Excel ke CSV, lalu upload di sini.</p>
-            <div class="notice">Kolom wajib: product_sku atau product_id, label, payload. Kolom opsional: status, note.</div>
+            <p class="card-desc">Kelola stok di Excel/Google Sheets, lalu import ke TokoKit saat stok siap dijual.</p>
+            <div class="notice">Kolom wajib: product_sku atau product_id, label, payload. Kolom opsional: status, note. Status kosong otomatis menjadi available.</div>
             <br>
-            <input class="input" type="file" accept=".csv,text/csv" onchange="TokoKit.handleInventoryImport(event)">
-            <br><br>
-            <button class="btn btn-secondary" onclick="TokoKit.exportInventoryCsv()">Download Template CSV</button>
+            <div class="grid">
+              <label class="field">
+                <span class="label">Upload CSV dari Excel/Google Sheets</span>
+                <input class="input" type="file" accept=".csv,text/csv" onchange="TokoKit.handleInventoryImport(event)">
+              </label>
+              <label class="field">
+                <span class="label">Paste tabel dari spreadsheet</span>
+                <textarea class="textarea spreadsheet-paste" placeholder="product_sku,label,payload,status,note&#10;SKU-DIGI-1,Akun #001,email@example.com | pass123,available,stok batch juni" oninput="TokoKit.updateInventoryImportField('paste', this.value)">${escapeHtml(state.inventoryImport.paste)}</textarea>
+              </label>
+              <button class="btn btn-secondary btn-block" onclick="TokoKit.handleInventoryPaste()">Import dari Paste</button>
+              <label class="field">
+                <span class="label">URL CSV publik opsional</span>
+                <input class="input" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv" value="${escapeAttr(state.inventoryImport.url)}" oninput="TokoKit.updateInventoryImportField('url', this.value)">
+              </label>
+              <button class="btn btn-secondary btn-block" onclick="TokoKit.importInventoryFromUrl()">Import dari URL CSV</button>
+              <div class="page-actions">
+                <button class="btn" onclick="TokoKit.downloadInventoryTemplate()">Download Template</button>
+                <button class="btn" onclick="TokoKit.copyInventoryTemplate()">Copy Header</button>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <h3 class="card-title">Cara Pakai Google Sheets</h3>
+            <div class="list">
+              <div class="list-row"><span>1. Buat sheet stok</span><b>Kolom template</b></div>
+              <div class="list-row"><span>2. Isi product_sku sesuai SKU produk digital</span><b>Wajib cocok</b></div>
+              <div class="list-row"><span>3. Publish CSV atau export CSV</span><b>Import</b></div>
+              <div class="list-row"><span>4. Stok available otomatis tampil di storefront</span><b>Sync</b></div>
+            </div>
           </div>
           <div class="card">
             <h3 class="card-title">Riwayat Stok</h3>
@@ -1043,7 +1086,7 @@
         <br>
         <div class="page-actions" style="justify-content:center">
           <button class="btn" onclick="TokoKit.go('/store/${store.slug}')">Kembali ke Toko</button>
-          ${pakasirPaymentUrl(store, order) ? `<a class="btn btn-secondary" href="${escapeAttr(pakasirPaymentUrl(store, order))}" target="_blank" rel="noopener">Bayar via Pakasir</a>` : ''}
+          ${gatewayPaymentUrl(store, order) ? `<a class="btn btn-secondary" href="${escapeAttr(gatewayPaymentUrl(store, order))}" target="_blank" rel="noopener">Bayar via ${escapeHtml(gatewayLabel(gatewayProvider(store)))}</a>` : ''}
           <button class="btn btn-primary" onclick="TokoKit.openWhatsApp('${escapeAttr(order.order_number || '')}')">Konfirmasi via WhatsApp</button>
         </div>
       </div>
@@ -1227,7 +1270,7 @@
             ${input('category', 'Kategori', product.category || '')}
             ${input('price', 'Harga', product.price || 0, true, 'number')}
             ${input('compare_at_price', 'Harga coret', product.compare_at_price || 0, false, 'number')}
-            ${input('stock', 'Stok', product.stock || 0, true, 'number')}
+            ${input('stock', 'Stok manual (non-digital)', effectiveFulfillment(product) === 'digital' ? digitalAvailableCount(product.id) : product.stock || 0, true, 'number')}
             <label class="field"><span class="label">Tipe produk</span><select class="select" name="product_type"><option value="physical" ${product.product_type === 'physical' ? 'selected' : ''}>Physical</option><option value="preorder" ${product.product_type === 'preorder' ? 'selected' : ''}>Preorder</option><option value="digital" ${product.product_type === 'digital' ? 'selected' : ''}>Digital</option><option value="service" ${product.product_type === 'service' ? 'selected' : ''}>Service</option></select></label>
             <label class="field"><span class="label">Cara penjualan</span><select class="select" name="fulfillment_type">
               <option value="pickup" ${effectiveFulfillment(product) === 'pickup' ? 'selected' : ''}>Ambil di toko</option>
@@ -1239,6 +1282,7 @@
             ${input('image_url', 'URL gambar produk', product.image_url || '')}
             ${fileInput('image_file', 'Upload gambar produk')}
           </div>
+          <p class="small-muted">Untuk produk digital, stok publik tidak diambil dari field ini. Stok digital dihitung dari item available di menu Inventori.</p>
           <br>
           ${textarea('description', 'Deskripsi', product.description || '')}
           <br>
@@ -1389,6 +1433,7 @@
       state.authForm = { full_name: '', email: '', password: '' };
       go('/app/dashboard');
     } catch (error) {
+      state.saving = false;
       state.error = error.message;
     } finally {
       state.saving = false;
@@ -1419,6 +1464,7 @@
       history.pushState({}, '', '/login');
       state.route = parseRoute();
     } catch (error) {
+      state.saving = false;
       state.error = error.message;
     } finally {
       state.saving = false;
@@ -1466,7 +1512,10 @@
       shipping_fee: Number(values.shipping_fee || 0),
       pickup_note: values.pickup_note,
       pakasir_slug: values.pakasir_slug,
-      payment_gateway_enabled: values.payment_gateway_enabled === 'true',
+      payment_gateway_provider: values.payment_gateway_provider || 'manual',
+      payment_gateway_project_id: values.pakasir_slug,
+      payment_gateway_checkout_url: values.payment_gateway_checkout_url,
+      payment_gateway_enabled: (values.payment_gateway_provider || 'manual') !== 'manual',
       brand_color: values.brand_color,
       logo_url: values.logo_url,
       banner_url: values.banner_url,
@@ -1504,6 +1553,8 @@
       return;
     }
     const id = values.id;
+    const fulfillmentType = values.fulfillment_type || fallbackFulfillment({ product_type: values.product_type });
+    const isDigitalProduct = values.product_type === 'digital' || fulfillmentType === 'digital';
     const payload = {
       tenant_id: state.store.tenant_id,
       store_id: state.store.id,
@@ -1514,9 +1565,9 @@
       description: values.description,
       price: Number(values.price || 0),
       compare_at_price: Number(values.compare_at_price || 0),
-      stock: Number(values.stock || 0),
+      stock: isDigitalProduct ? digitalAvailableCount(id) : Number(values.stock || 0),
       product_type: values.product_type,
-      fulfillment_type: values.fulfillment_type || fallbackFulfillment({ product_type: values.product_type }),
+      fulfillment_type: fulfillmentType,
       status: values.status,
       image_url: values.image_url,
       digital_delivery_enabled: values.digital_delivery_enabled === 'true',
@@ -1659,55 +1710,114 @@
     if (!file) return;
     try {
       const text = await file.text();
-      const rows = parseCsv(text);
-      if (!rows.length) throw new Error('CSV kosong. Pastikan baris pertama berisi header.');
-      const headers = rows[0].map((cell) => normalizeHeader(cell));
-      const body = rows.slice(1).filter((row) => row.some((cell) => String(cell || '').trim()));
-      const imported = [];
-      const errors = [];
-      body.forEach((row, index) => {
-        const record = Object.fromEntries(headers.map((header, idx) => [header, row[idx] || '']));
-        const product = findProductForImport(record.product_id, record.product_sku || record.sku);
-        if (!product) {
-          errors.push(`Baris ${index + 2}: produk tidak ditemukan.`);
-          return;
-        }
-        if (!record.label || !record.payload) {
-          errors.push(`Baris ${index + 2}: label dan payload wajib diisi.`);
-          return;
-        }
-        imported.push({
-          tenant_id: state.store.tenant_id,
-          store_id: state.store.id,
-          product_id: product.id,
-          label: record.label,
-          payload: record.payload,
-          status: ['available', 'reserved', 'sold', 'delivered', 'cancelled'].includes(record.status) ? record.status : 'available',
-          note: record.note || '',
-          created_at: today(),
-          updated_at: today()
-        });
-      });
-      if (!imported.length) throw new Error(errors.join(' ') || 'Tidak ada baris valid untuk diimport.');
-      if (supabaseClient) {
-        const { data, error } = await supabaseClient.from('inventory_items').insert(imported).select();
-        if (error) throw error;
-        state.inventoryItems = [...(data || []), ...state.inventoryItems];
-      } else {
-        state.inventoryItems = imported.map((item, index) => ({ ...item, id: 'inv-import-' + Date.now() + '-' + index })).concat(state.inventoryItems);
-        writeJson('tokokit:demoInventoryItems', state.inventoryItems);
-      }
-      const affectedProducts = [...new Set(imported.map((item) => item.product_id))];
-      await Promise.all(affectedProducts.map((productId) => syncDigitalProductStock(productId)));
-      await Promise.all(affectedProducts.map((productId) => createStockMovement(productId, 'manual_adjustment', imported.filter((item) => item.product_id === productId && item.status === 'available').length, 'Import CSV stok digital')));
-      state.notice = `${imported.length} stok digital berhasil diimport.${errors.length ? ` ${errors.length} baris dilewati.` : ''}`;
-      if (errors.length) state.error = errors.slice(0, 3).join(' ');
+      await importInventoryText(text, `Upload CSV ${file.name}`);
     } catch (error) {
       state.error = error.message;
     } finally {
       event.target.value = '';
       render();
     }
+  }
+
+  async function handleInventoryPaste() {
+    try {
+      if (!String(state.inventoryImport.paste || '').trim()) throw new Error('Paste data spreadsheet dulu.');
+      await importInventoryText(state.inventoryImport.paste, 'Paste spreadsheet');
+      state.inventoryImport.paste = '';
+    } catch (error) {
+      state.error = error.message;
+    } finally {
+      render();
+    }
+  }
+
+  async function importInventoryFromUrl() {
+    try {
+      const url = String(state.inventoryImport.url || '').trim();
+      if (!url) throw new Error('Isi URL CSV publik dulu.');
+      writeJson('tokokit:inventoryCsvUrl', url);
+      state.saving = true;
+      render();
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Gagal mengambil CSV. Pastikan Google Sheet sudah Publish to web sebagai CSV.');
+      const text = await response.text();
+      await importInventoryText(text, 'Import URL CSV');
+    } catch (error) {
+      state.error = error.message;
+    } finally {
+      state.saving = false;
+      render();
+    }
+  }
+
+  function updateInventoryImportField(field, value) {
+    state.inventoryImport[field] = value;
+    if (field === 'url') writeJson('tokokit:inventoryCsvUrl', value);
+  }
+
+  async function importInventoryText(text, sourceLabel) {
+    state.saving = true;
+    state.error = '';
+    render();
+    const rows = parseCsv(normalizeSpreadsheetText(text));
+    if (!rows.length) throw new Error('Data kosong. Pastikan baris pertama berisi header.');
+    const headers = rows[0].map((cell) => normalizeHeader(cell));
+    const required = headers.includes('product_id') || headers.includes('product_sku') || headers.includes('sku');
+    if (!required || !headers.includes('label') || !headers.includes('payload')) {
+      throw new Error('Header wajib: product_sku atau product_id, label, payload. Kolom opsional: status, note.');
+    }
+    const body = rows.slice(1).filter((row) => row.some((cell) => String(cell || '').trim()));
+    const imported = [];
+    const errors = [];
+    const seen = new Set(state.inventoryItems.map((item) => duplicateInventoryKey(item.product_id, item.label, item.payload)));
+    body.forEach((row, index) => {
+      const record = Object.fromEntries(headers.map((header, idx) => [header, row[idx] || '']));
+      const product = findProductForImport(record.product_id, record.product_sku || record.sku);
+      if (!product) {
+        errors.push(`Baris ${index + 2}: produk tidak ditemukan.`);
+        return;
+      }
+      if (effectiveFulfillment(product) !== 'digital' && product.product_type !== 'digital') {
+        errors.push(`Baris ${index + 2}: ${product.name} bukan produk digital.`);
+        return;
+      }
+      if (!record.label || !record.payload) {
+        errors.push(`Baris ${index + 2}: label dan payload wajib diisi.`);
+        return;
+      }
+      const key = duplicateInventoryKey(product.id, record.label, record.payload);
+      if (seen.has(key)) {
+        errors.push(`Baris ${index + 2}: stok duplikat dilewati.`);
+        return;
+      }
+      seen.add(key);
+      imported.push({
+        tenant_id: state.store.tenant_id,
+        store_id: state.store.id,
+        product_id: product.id,
+        label: record.label,
+        payload: record.payload,
+        status: ['available', 'reserved', 'sold', 'delivered', 'cancelled'].includes(record.status) ? record.status : 'available',
+        note: record.note || sourceLabel || '',
+        created_at: today(),
+        updated_at: today()
+      });
+    });
+    if (!imported.length) throw new Error(errors.slice(0, 5).join(' ') || 'Tidak ada baris valid untuk diimport.');
+    if (supabaseClient) {
+      const { data, error } = await supabaseClient.from('inventory_items').insert(imported).select();
+      if (error) throw error;
+      state.inventoryItems = [...(data || []), ...state.inventoryItems];
+    } else {
+      state.inventoryItems = imported.map((item, index) => ({ ...item, id: 'inv-import-' + Date.now() + '-' + index })).concat(state.inventoryItems);
+      writeJson('tokokit:demoInventoryItems', state.inventoryItems);
+    }
+    const affectedProducts = [...new Set(imported.map((item) => item.product_id))];
+    await Promise.all(affectedProducts.map((productId) => syncDigitalProductStock(productId)));
+    await Promise.all(affectedProducts.map((productId) => createStockMovement(productId, 'manual_adjustment', imported.filter((item) => item.product_id === productId && item.status === 'available').length, sourceLabel || 'Import stok digital')));
+    state.notice = `${imported.length} stok digital berhasil diimport.${errors.length ? ` ${errors.length} baris dilewati.` : ''}`;
+    if (errors.length) state.error = errors.slice(0, 3).join(' ');
+    state.saving = false;
   }
 
   function exportInventoryCsv() {
@@ -1718,12 +1828,38 @@
         return [product?.sku || '', item.product_id || '', item.label || '', item.payload || '', item.status || 'available', item.note || ''];
       })
     ];
+    downloadCsv(rows, 'tokokit-inventory.csv');
+  }
+
+  function downloadInventoryTemplate() {
+    const digitalProduct = state.products.find((product) => effectiveFulfillment(product) === 'digital' || product.product_type === 'digital');
+    const sku = digitalProduct?.sku || 'SKU-DIGITAL-1';
+    const rows = [
+      ['product_sku', 'product_id', 'label', 'payload', 'status', 'note'],
+      [sku, digitalProduct?.id || '', 'Item digital #001', 'email@example.com | password123 | catatan kirim', 'available', 'contoh stok siap jual'],
+      [sku, digitalProduct?.id || '', 'Item digital #002', 'KODE-VOUCHER-002', 'available', 'contoh voucher']
+    ];
+    downloadCsv(rows, 'tokokit-inventory-template.csv');
+  }
+
+  async function copyInventoryTemplate() {
+    const text = 'product_sku,product_id,label,payload,status,note';
+    try {
+      await navigator.clipboard.writeText(text);
+      state.notice = 'Header template berhasil dicopy.';
+    } catch (_error) {
+      state.error = 'Browser tidak mengizinkan copy otomatis. Copy manual: ' + text;
+    }
+    render();
+  }
+
+  function downloadCsv(rows, filename) {
     const csv = rows.map((row) => row.map(csvCell).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'tokokit-inventory.csv';
+    link.download = filename;
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -2062,7 +2198,10 @@
           order_id: createdOrder.id,
           method: values.payment_method,
           amount: createdOrder.total_amount,
-          status: 'unpaid'
+          status: 'unpaid',
+          gateway_provider: gatewayProvider(store),
+          gateway_reference: createdOrder.order_number,
+          checkout_url: gatewayPaymentUrl(store, createdOrder)
         });
         if (paymentError) throw paymentError;
       } else {
@@ -2124,6 +2263,20 @@
 
   function renderPaymentInstruction(store, order, context) {
     const method = order?.payment_method || 'manual_transfer';
+    const gateway = gatewayProvider(store);
+    if (context === 'success' && gateway !== 'manual') {
+      const url = gatewayPaymentUrl(store, order);
+      return `
+        <p class="card-desc">${gatewayCopy(gateway, Boolean(url))}</p>
+        <div class="list">
+          <div class="list-row"><span>Provider</span><b>${escapeHtml(gatewayLabel(gateway))}</b></div>
+          <div class="list-row"><span>Total</span><b>${currency(order.total_amount)}</b></div>
+          <div class="list-row"><span>Order ID</span><b>${escapeHtml(order.order_number || '-')}</b></div>
+        </div>
+        ${!url ? `<div class="notice" style="margin-top:12px">Gateway ini belum punya checkout link frontend. Gunakan instruksi manual dulu atau hubungkan backend webhook.</div>` : ''}
+        <p class="card-desc" style="margin-top:12px">${escapeHtml(store.payment_instruction || 'Setelah membayar, status akan dikonfirmasi oleh toko.')}</p>
+      `;
+    }
     if (method === 'qris') {
       return `
         <p class="card-desc">Scan QRIS berikut, bayar sesuai total, lalu konfirmasi ke WhatsApp toko.</p>
@@ -2143,12 +2296,49 @@
     `;
   }
 
+  function gatewayPaymentUrl(store, order) {
+    const provider = gatewayProvider(store);
+    if (!store?.payment_gateway_enabled || provider === 'manual' || !order?.total_amount) return '';
+    if (provider === 'pakasir') return pakasirPaymentUrl(store, order);
+    if (provider === 'custom_link') return customPaymentUrl(store, order);
+    return '';
+  }
+
   function pakasirPaymentUrl(store, order) {
-    if (!store?.payment_gateway_enabled || !store?.pakasir_slug || !order?.total_amount) return '';
-    const slug = encodeURIComponent(store.pakasir_slug);
+    if (!store?.pakasir_slug && !store?.payment_gateway_project_id) return '';
+    const slug = encodeURIComponent(store.pakasir_slug || store.payment_gateway_project_id);
     const amount = Math.round(Number(order.total_amount || 0));
     const orderId = encodeURIComponent(order.order_number || order.id || String(Date.now()));
     return `https://app.pakasir.com/pay/${slug}/${amount}?order_id=${orderId}`;
+  }
+
+  function customPaymentUrl(store, order) {
+    if (!store?.payment_gateway_checkout_url) return '';
+    try {
+      const url = new URL(store.payment_gateway_checkout_url);
+      url.searchParams.set('order_id', order.order_number || order.id || '');
+      url.searchParams.set('amount', Math.round(Number(order.total_amount || 0)));
+      return url.toString();
+    } catch (_error) {
+      return '';
+    }
+  }
+
+  function gatewayProvider(store) {
+    if (store?.payment_gateway_provider) return store.payment_gateway_provider;
+    if (store?.payment_gateway_enabled && store?.pakasir_slug) return 'pakasir';
+    return 'manual';
+  }
+
+  function gatewayLabel(provider) {
+    return ({ manual: 'Manual', pakasir: 'Pakasir', custom_link: 'Custom Link', midtrans: 'Midtrans', xendit: 'Xendit' })[provider] || 'Manual';
+  }
+
+  function gatewayCopy(provider, hasUrl) {
+    if (provider === 'pakasir') return hasUrl ? 'Klik tombol bayar untuk membuka payment link Pakasir dengan nominal dan order ID pesanan ini.' : 'Lengkapi project/slug Pakasir di halaman Toko Saya.';
+    if (provider === 'custom_link') return hasUrl ? 'Klik tombol bayar untuk membuka payment link custom seller.' : 'Lengkapi base URL custom payment di halaman Toko Saya.';
+    if (provider === 'midtrans' || provider === 'xendit') return 'Provider ini butuh backend webhook/serverless agar order bisa dibuat dan status paid bisa diverifikasi otomatis.';
+    return 'Gunakan transfer bank atau QRIS manual sesuai instruksi toko.';
   }
 
   function toggleSidebar(force) {
@@ -2214,6 +2404,11 @@
     return state.products.find((product) => product.id === id) || state.publicProducts.find((product) => product.id === id);
   }
 
+  function digitalAvailableCount(productId) {
+    if (!productId) return 0;
+    return state.inventoryItems.filter((item) => item.product_id === productId && item.status === 'available').length;
+  }
+
   function orderNumberById(id) {
     return state.orders.find((order) => order.id === id)?.order_number || '';
   }
@@ -2267,12 +2462,22 @@
     return rows;
   }
 
+  function normalizeSpreadsheetText(text) {
+    const raw = String(text || '').replace(/^\uFEFF/, '').trim();
+    if (!raw.includes('\t')) return raw;
+    return raw.split(/\r?\n/).map((line) => line.split('\t').map(csvCell).join(',')).join('\n');
+  }
+
   function normalizeHeader(value) {
     return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
   }
 
   function findProductForImport(productId, sku) {
     return state.products.find((product) => product.id === productId) || state.products.find((product) => String(product.sku || '').toLowerCase() === String(sku || '').toLowerCase());
+  }
+
+  function duplicateInventoryKey(productId, label, payload) {
+    return [productId || '', String(label || '').trim().toLowerCase(), String(payload || '').trim().toLowerCase()].join('|');
   }
 
   function csvCell(value) {
