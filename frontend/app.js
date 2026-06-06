@@ -428,53 +428,103 @@
           </div>
         </nav>
         <main>
-          <section class="landing-hero">
-            <div>
+          <section class="landing-hero-pro">
+            <div class="landing-hero-bg">
+              <img src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=1800&q=80" alt="">
+            </div>
+            <div class="landing-hero-overlay"></div>
+            <div class="landing-hero-content reveal-up">
               ${badge('Untuk UMKM, digital seller, preorder, dan pickup', 'primary')}
-              <h1>Toko online ringan untuk jualan tanpa ribet operasional.</h1>
-              <p>TokoKit membantu seller membuat storefront, menerima pesanan, mengatur checkout sesuai jenis produk, dan menyiapkan alur pembayaran manual maupun gateway.</p>
+              <h1>Bangun storefront, checkout, dan fulfillment digital dari satu dashboard.</h1>
+              <p>TokoKit membantu seller membuat toko publik, mengelola produk digital/pickup/preorder, menerima pesanan, mengatur payment link, dan menyiapkan stok siap kirim tanpa workflow berantakan.</p>
               <div class="page-actions">
                 <button class="btn btn-primary" onclick="TokoKit.go('/register')">Mulai Buat Toko</button>
                 <button class="btn btn-secondary" onclick="document.getElementById('flow').scrollIntoView({behavior:'smooth'})">Lihat Alur</button>
               </div>
             </div>
-            <div class="landing-preview">
-              <div class="list">
-                <div class="list-row"><span>Produk digital</span>${badge('Tanpa alamat', 'success')}</div>
-                <div class="list-row"><span>Makanan pickup</span>${badge('Ambil di toko', 'primary')}</div>
-                <div class="list-row"><span>Preorder</span>${badge('Jadwal produksi', 'warning')}</div>
-                <div class="list-row"><span>Payment</span>${badge('Manual + gateway ready', 'info')}</div>
+            <div class="landing-hero-dock reveal-up">
+              <div class="dock-card"><span>Omzet paid</span><b>Rp 12.450.000</b></div>
+              <div class="dock-card"><span>Inventory ready</span><b>248 item</b></div>
+              <div class="dock-card"><span>Order unpaid</span><b>9 follow-up</b></div>
+            </div>
+          </section>
+          <section class="landing-section landing-logo-strip reveal-up">
+            ${integrationLogo('Supabase')}
+            ${integrationLogo('Vercel')}
+            ${integrationLogo('Google Sheets')}
+            ${integrationLogo('Pakasir')}
+            ${integrationLogo('Midtrans')}
+            ${integrationLogo('Xendit')}
+            ${integrationLogo('Resend')}
+          </section>
+          <section class="landing-section">
+            <div class="landing-dashboard-preview reveal-up">
+              <div class="preview-sidebar">
+                <b>TokoKit</b>
+                <span>Dashboard</span>
+                <span>Produk</span>
+                <span>Inventori</span>
+                <span>Pesanan</span>
+              </div>
+              <div class="preview-main">
+                <div class="preview-topline"></div>
+                <div class="preview-metrics">
+                  ${previewMetric('Rp 8.750.000', 'Paid revenue')}
+                  ${previewMetric('42', 'Orders')}
+                  ${previewMetric('128', 'Digital stock')}
+                </div>
+                <div class="preview-table">
+                  <div></div><div></div><div></div>
+                  <div></div><div></div><div></div>
+                  <div></div><div></div><div></div>
+                </div>
               </div>
             </div>
           </section>
           <section id="flow" class="landing-section">
             <div class="page-header">
               <div>
-                <h2 class="page-title">Flow Seller</h2>
-                <p class="page-subtitle">Dibuat agar seller pemula tetap paham langkah jualannya.</p>
+                <h2 class="page-title">Workflow Seller</h2>
+                <p class="page-subtitle">Dibuat agar seller pemula tetap bisa mengelola order seperti produk profesional.</p>
               </div>
             </div>
             <div class="grid grid-4">
-              ${landingStep('1', 'Buat toko', 'Daftar seller, isi nama toko, WhatsApp, dan instruksi pembayaran.')}
-              ${landingStep('2', 'Tambah produk', 'Pilih jenis penjualan: digital, pickup, delivery, atau preorder.')}
-              ${landingStep('3', 'Bagikan link', 'Buyer membuka link toko, melihat detail produk, lalu checkout tanpa akun.')}
-              ${landingStep('4', 'Kelola order', 'Seller melihat pesanan, follow-up WhatsApp, dan nanti payment bisa otomatis.')}
+              ${landingStep('1', 'Setup toko', 'Isi profil toko, metode pembayaran, dan publish link publik.')}
+              ${landingStep('2', 'Kelola produk', 'Pilih digital, pickup, delivery, service, atau preorder sesuai bisnis.')}
+              ${landingStep('3', 'Import stok', 'Upload CSV, paste spreadsheet, atau sync URL CSV Google Sheets.')}
+              ${landingStep('4', 'Fulfill order', 'Order paid bisa reserve stok digital dan siap untuk auto-delivery.')}
             </div>
           </section>
           <section class="landing-section">
-            <div class="grid grid-2">
-              <div class="card">
-                <h3 class="card-title">Siap untuk produk digital</h3>
-                <p class="card-desc">Struktur produk sudah disiapkan untuk stok digital dan delivery otomatis setelah payment terdeteksi paid.</p>
+            <div class="grid grid-3">
+              <div class="card feature-card">
+                <div class="feature-img"><img src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=900&q=80" alt=""></div>
+                <h3 class="card-title">Inventory spreadsheet</h3>
+                <p class="card-desc">Seller bisa mengelola stok digital di Google Sheets atau Excel, lalu import ke TokoKit.</p>
               </div>
-              <div class="card">
-                <h3 class="card-title">Butuh bantuan setup?</h3>
-                <p class="card-desc">Gunakan tombol daftar dulu. Kontak admin bisa ditambahkan di konfigurasi saat project siap dibuka publik.</p>
-                <div class="page-actions">
-                  ${config.ADMIN_WHATSAPP ? `<a class="btn btn-secondary" href="https://wa.me/${escapeAttr(config.ADMIN_WHATSAPP)}" target="_blank" rel="noopener">Hubungi Admin</a>` : ''}
-                  ${config.ADMIN_EMAIL ? `<a class="btn" href="mailto:${escapeAttr(config.ADMIN_EMAIL)}">Email Admin</a>` : ''}
-                  <button class="btn btn-primary" onclick="TokoKit.go('/register')">Buat Akun Seller</button>
-                </div>
+              <div class="card feature-card">
+                <div class="feature-img"><img src="https://images.unsplash.com/photo-1556740758-90de374c12ad?auto=format&fit=crop&w=900&q=80" alt=""></div>
+                <h3 class="card-title">Payment gateway ready</h3>
+                <p class="card-desc">Manual, QRIS, Pakasir, custom link, dan pondasi webhook untuk Midtrans/Xendit.</p>
+              </div>
+              <div class="card feature-card">
+                <div class="feature-img"><img src="https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&w=900&q=80" alt=""></div>
+                <h3 class="card-title">Order operations</h3>
+                <p class="card-desc">Dashboard seller, order detail, fulfillment log, dan status pembayaran dalam satu alur.</p>
+              </div>
+            </div>
+          </section>
+          <section class="landing-section">
+            <div class="landing-cta">
+              <div>
+                <h2 class="page-title">Siapkan toko yang bisa dipakai buyer sungguhan.</h2>
+                <p class="page-subtitle">Mulai dari manual dulu, lalu upgrade ke payment webhook dan auto-delivery saat operasional sudah stabil.</p>
+              </div>
+              <div class="page-actions">
+                <button class="btn btn-primary" onclick="TokoKit.go('/register')">Buat Akun Seller</button>
+                <button class="btn" onclick="TokoKit.go('/login')">Masuk Seller</button>
+                ${config.ADMIN_WHATSAPP ? `<a class="btn btn-secondary" href="https://wa.me/${escapeAttr(config.ADMIN_WHATSAPP)}" target="_blank" rel="noopener">Hubungi Admin</a>` : ''}
+                ${config.ADMIN_EMAIL ? `<a class="btn" href="mailto:${escapeAttr(config.ADMIN_EMAIL)}">Email Admin</a>` : ''}
               </div>
             </div>
           </section>
@@ -485,6 +535,14 @@
 
   function landingStep(number, title, desc) {
     return `<div class="card landing-step"><div class="metric-icon">${number}</div><h3 class="card-title">${title}</h3><p class="card-desc">${desc}</p></div>`;
+  }
+
+  function integrationLogo(label) {
+    return `<div class="integration-logo"><span>${escapeHtml(label.slice(0, 2).toUpperCase())}</span>${escapeHtml(label)}</div>`;
+  }
+
+  function previewMetric(value, label) {
+    return `<div><b>${escapeHtml(value)}</b><span>${escapeHtml(label)}</span></div>`;
   }
 
   function renderAuth(page) {
@@ -975,10 +1033,16 @@
   function renderStorefront() {
     const store = state.publicStore;
     const products = state.publicProducts;
+    const categories = [...new Set(products.map((product) => product.category).filter(Boolean))].slice(0, 6);
+    const digitalCount = products.filter((product) => effectiveFulfillment(product) === 'digital').length;
     const content = `
-      <section class="hero" style="background:${escapeAttr(store.brand_color || '#0f172a')}">
-        <div>
-          ${badge('Published', 'success')}
+      <section class="store-hero-pro" style="--store-brand:${escapeAttr(store.brand_color || '#2563eb')}">
+        <div class="store-hero-bg">
+          <img src="${escapeAttr(storeHeroImage(store))}" alt="">
+        </div>
+        <div class="store-hero-shade"></div>
+        <div class="store-hero-content reveal-up">
+          <div class="page-actions">${badge('Published', 'success')}${statusBadge(store.fulfillment_mode || 'pickup', 'fulfillment')}</div>
           <h1>${escapeHtml(store.name)}</h1>
           <p>${escapeHtml(store.description || 'Pilih produk, checkout tanpa akun, lalu konfirmasi pembayaran melalui WhatsApp.')}</p>
           <div class="page-actions">
@@ -986,13 +1050,18 @@
             <button class="btn" onclick="TokoKit.openWhatsApp()">Chat WhatsApp</button>
           </div>
         </div>
-        <div class="hero-panel">
-          <div>
-            <div style="font-size:44px;font-weight:950">${escapeHtml(store.business_type || 'UMKM')}</div>
-            <div style="color:#dbeafe;margin-top:10px">${escapeHtml(store.address || 'Indonesia')}</div>
-          </div>
+        <div class="store-hero-panel reveal-up">
+          <div class="store-stat"><span>Produk aktif</span><b>${products.length}</b></div>
+          <div class="store-stat"><span>Digital</span><b>${digitalCount}</b></div>
+          <div class="store-stat"><span>Payment</span><b>${gatewayLabel(gatewayProvider(store))}</b></div>
         </div>
       </section>
+      <section class="store-info-band">
+        <div><b>${escapeHtml(store.business_type || 'Toko online')}</b><span>${escapeHtml(store.address || 'Indonesia')}</span></div>
+        <div><b>Checkout tanpa akun</b><span>Isi data buyer, bayar, lalu konfirmasi.</span></div>
+        <div><b>Powered by TokoKit</b><span>Storefront, inventory, order, payment.</span></div>
+      </section>
+      ${categories.length ? `<section class="category-strip">${categories.map((category) => `<button class="category-chip" onclick="document.getElementById('products').scrollIntoView({behavior:'smooth'})">${escapeHtml(category)}</button>`).join('')}</section>` : ''}
       <section id="products" class="product-grid">
         ${products.length ? products.map(renderPublicProduct).join('') : `<div class="empty">Toko ini belum punya produk aktif.</div>`}
       </section>
@@ -2339,6 +2408,18 @@
     if (provider === 'custom_link') return hasUrl ? 'Klik tombol bayar untuk membuka payment link custom seller.' : 'Lengkapi base URL custom payment di halaman Toko Saya.';
     if (provider === 'midtrans' || provider === 'xendit') return 'Provider ini butuh backend webhook/serverless agar order bisa dibuat dan status paid bisa diverifikasi otomatis.';
     return 'Gunakan transfer bank atau QRIS manual sesuai instruksi toko.';
+  }
+
+  function storeHeroImage(store) {
+    if (store?.banner_url) return store.banner_url;
+    const type = String(store?.business_type || '').toLowerCase();
+    if (type.includes('makan') || type.includes('food') || type.includes('minum') || type.includes('kopi')) {
+      return 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=1800&q=80';
+    }
+    if (type.includes('digital') || type.includes('voucher') || type.includes('software')) {
+      return 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1800&q=80';
+    }
+    return 'https://images.unsplash.com/photo-1556740758-90de374c12ad?auto=format&fit=crop&w=1800&q=80';
   }
 
   function toggleSidebar(force) {

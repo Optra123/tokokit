@@ -25,6 +25,7 @@ tokokit/
 |   +-- DATABASE_SCHEMA.md
 |   +-- DEPLOYMENT_GUIDE.md
 |   +-- INVENTORY_SPREADSHEET_GUIDE.md
+|   +-- VISUAL_SETUP_GUIDE.md
 |   +-- PORTFOLIO_CASE_STUDY.md
 |   +-- CODEX_PROMPTS.md
 +-- apps-script/
@@ -42,6 +43,7 @@ Seller app:
 
 - Register/login via Supabase Auth
 - Landing page publik di `/` untuk pengenalan produk dan CTA seller
+- Homepage visual dengan hero image, logo integrasi, dashboard preview, feature cards, dan animasi ringan
 - Auto-create tenant, profile, dan toko awal
 - Dashboard metrik pesanan/produk
 - Edit profil toko dan publish/unpublish toko
@@ -68,6 +70,7 @@ Public storefront:
 - Produk digital diblokir checkout jika stok siap kirim tidak cukup
 - Stok produk digital dihitung dari Inventori, bukan input stok manual di form produk
 - Detail produk popup, tambah cart, dan beli sekarang
+- Storefront visual dengan banner hero, kategori, store info band, dan product card animatif
 - Pondasi auto-delivery produk digital: template email, inventory item, dan fulfillment log
 - Payment link dinamis untuk Pakasir/custom link; Midtrans/Xendit butuh backend webhook sebelum auto-paid
 

@@ -16,6 +16,7 @@ Versi pertama harus bisa dipakai sebagai produk publik sederhana:
 - Asset upload memakai Supabase Storage
 - Frontend dideploy ke Vercel
 - Landing page utama `/` memperkenalkan TokoKit untuk seller.
+- Landing page memakai hero visual, logo integrasi, preview dashboard, feature cards, dan CTA seller.
 - Storefront buyer tidak menampilkan tombol seller login/register.
 - Payment v1 memakai transfer manual dan QRIS statis
 
@@ -149,6 +150,9 @@ Content:
 - Description
 - Business type
 - Address
+- Banner visual
+- Store info band
+- Category chips
 - WhatsApp action
 - Active product grid
 - Cart button
@@ -215,6 +219,7 @@ Frontend v1 dianggap selesai jika:
 - Seller bisa mengatur cara penjualan per produk: digital, ambil di toko, delivery, atau preorder pickup.
 - Checkout hanya meminta alamat jika cart berisi produk delivery.
 - Buyer bisa lihat detail produk, tambah ke cart, atau beli langsung.
+- Homepage dan storefront punya visual asset, responsive layout, dan animasi ringan dengan reduced-motion support.
 - Produk digital punya field persiapan auto-delivery dan stok rahasia di inventory seller.
 - Seller bisa import/export stok digital CSV.
 - Checkout digital memblokir order jika stok siap kirim tidak cukup.
