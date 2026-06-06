@@ -77,6 +77,10 @@ create table if not exists public.products (
   fulfillment_type text not null default 'pickup',
   status text not null default 'draft' check (status in ('active', 'draft', 'archived')),
   image_url text,
+  digital_delivery_enabled boolean not null default false,
+  delivery_subject text,
+  delivery_message text,
+  digital_stock_notes text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -180,6 +184,10 @@ alter table public.stores add column if not exists pickup_note text;
 alter table public.stores add column if not exists pakasir_slug text;
 alter table public.stores add column if not exists payment_gateway_enabled boolean not null default false;
 alter table public.products add column if not exists fulfillment_type text not null default 'pickup';
+alter table public.products add column if not exists digital_delivery_enabled boolean not null default false;
+alter table public.products add column if not exists delivery_subject text;
+alter table public.products add column if not exists delivery_message text;
+alter table public.products add column if not exists digital_stock_notes text;
 alter table public.orders add column if not exists fulfillment_type text not null default 'pickup';
 alter table public.order_items add column if not exists fulfillment_type text not null default 'pickup';
 

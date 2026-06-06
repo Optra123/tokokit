@@ -15,6 +15,8 @@ Versi pertama harus bisa dipakai sebagai produk publik sederhana:
 - Backend utama memakai Supabase Auth dan Supabase Postgres
 - Asset upload memakai Supabase Storage
 - Frontend dideploy ke Vercel
+- Landing page utama `/` memperkenalkan TokoKit untuk seller.
+- Storefront buyer tidak menampilkan tombol seller login/register.
 - Payment v1 memakai transfer manual dan QRIS statis
 
 ## 3. User Roles
@@ -189,6 +191,7 @@ Frontend v1 dianggap selesai jika:
 - Seller bisa mengatur cara penjualan per produk: digital, ambil di toko, delivery, atau preorder pickup.
 - Checkout hanya meminta alamat jika cart berisi produk delivery.
 - Buyer bisa lihat detail produk, tambah ke cart, atau beli langsung.
+- Produk digital punya field persiapan auto-delivery: subject email, pesan email, dan stok digital siap kirim.
 - Seller bisa register/login.
 - Seller bisa publish toko.
 - Seller bisa CRUD produk.

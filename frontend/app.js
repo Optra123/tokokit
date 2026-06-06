@@ -35,6 +35,7 @@
     publicStore: null,
     publicProducts: [],
     lastOrder: readJson('tokokit:lastOrder', null),
+    authForm: { full_name: '', email: '', password: '' },
     notice: '',
     error: '',
     modal: null
@@ -103,6 +104,7 @@
     logout,
     login,
     register,
+    updateAuthField,
     saveStore,
     openProductModal,
     closeModal,
@@ -160,7 +162,8 @@
       }
 
       if (state.route.section === 'home') {
-        go(supabaseClient ? '/login' : '/app/dashboard', true);
+        state.loading = false;
+        render();
         return;
       }
 
@@ -353,18 +356,95 @@
       return;
     }
 
+    if (state.route.section === 'home') {
+      app.innerHTML = renderLanding();
+      return;
+    }
+
     app.innerHTML = renderAdmin();
+  }
+
+  function renderLanding() {
+    return `
+      <div class="landing-shell">
+        <nav class="landing-nav">
+          <div class="landing-brand">TokoKit</div>
+          <div class="page-actions">
+            <button class="btn" onclick="TokoKit.go('/login')">Masuk Seller</button>
+            <button class="btn btn-primary" onclick="TokoKit.go('/register')">Buat Toko</button>
+          </div>
+        </nav>
+        <main>
+          <section class="landing-hero">
+            <div>
+              ${badge('Untuk UMKM, digital seller, preorder, dan pickup', 'primary')}
+              <h1>Toko online ringan untuk jualan tanpa ribet operasional.</h1>
+              <p>TokoKit membantu seller membuat storefront, menerima pesanan, mengatur checkout sesuai jenis produk, dan menyiapkan alur pembayaran manual maupun gateway.</p>
+              <div class="page-actions">
+                <button class="btn btn-primary" onclick="TokoKit.go('/register')">Mulai Buat Toko</button>
+                <button class="btn btn-secondary" onclick="document.getElementById('flow').scrollIntoView({behavior:'smooth'})">Lihat Alur</button>
+              </div>
+            </div>
+            <div class="landing-preview">
+              <div class="list">
+                <div class="list-row"><span>Produk digital</span>${badge('Tanpa alamat', 'success')}</div>
+                <div class="list-row"><span>Makanan pickup</span>${badge('Ambil di toko', 'primary')}</div>
+                <div class="list-row"><span>Preorder</span>${badge('Jadwal produksi', 'warning')}</div>
+                <div class="list-row"><span>Payment</span>${badge('Manual + gateway ready', 'info')}</div>
+              </div>
+            </div>
+          </section>
+          <section id="flow" class="landing-section">
+            <div class="page-header">
+              <div>
+                <h2 class="page-title">Flow Seller</h2>
+                <p class="page-subtitle">Dibuat agar seller pemula tetap paham langkah jualannya.</p>
+              </div>
+            </div>
+            <div class="grid grid-4">
+              ${landingStep('1', 'Buat toko', 'Daftar seller, isi nama toko, WhatsApp, dan instruksi pembayaran.')}
+              ${landingStep('2', 'Tambah produk', 'Pilih jenis penjualan: digital, pickup, delivery, atau preorder.')}
+              ${landingStep('3', 'Bagikan link', 'Buyer membuka link toko, melihat detail produk, lalu checkout tanpa akun.')}
+              ${landingStep('4', 'Kelola order', 'Seller melihat pesanan, follow-up WhatsApp, dan nanti payment bisa otomatis.')}
+            </div>
+          </section>
+          <section class="landing-section">
+            <div class="grid grid-2">
+              <div class="card">
+                <h3 class="card-title">Siap untuk produk digital</h3>
+                <p class="card-desc">Struktur produk sudah disiapkan untuk stok digital dan delivery otomatis setelah payment terdeteksi paid.</p>
+              </div>
+              <div class="card">
+                <h3 class="card-title">Butuh bantuan setup?</h3>
+                <p class="card-desc">Gunakan tombol daftar dulu. Kontak admin bisa ditambahkan di konfigurasi saat project siap dibuka publik.</p>
+                <div class="page-actions">
+                  ${config.ADMIN_WHATSAPP ? `<a class="btn btn-secondary" href="https://wa.me/${escapeAttr(config.ADMIN_WHATSAPP)}" target="_blank" rel="noopener">Hubungi Admin</a>` : ''}
+                  ${config.ADMIN_EMAIL ? `<a class="btn" href="mailto:${escapeAttr(config.ADMIN_EMAIL)}">Email Admin</a>` : ''}
+                  <button class="btn btn-primary" onclick="TokoKit.go('/register')">Buat Akun Seller</button>
+                </div>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+    `;
+  }
+
+  function landingStep(number, title, desc) {
+    return `<div class="card landing-step"><div class="metric-icon">${number}</div><h3 class="card-title">${title}</h3><p class="card-desc">${desc}</p></div>`;
   }
 
   function renderAuth(page) {
     const isLogin = page === 'login';
+    const values = state.authForm;
+    const authError = state.error ? friendlyAuthError(state.error) : '';
     return `
       <div class="auth-shell">
         <section class="auth-hero">
           <div class="auth-brand">TokoKit</div>
           <div class="auth-copy">
-            <h1>Bangun toko online UMKM yang langsung siap dipakai.</h1>
-            <p>Kelola toko, produk, pesanan, pembayaran manual, dan alur konfirmasi WhatsApp dalam satu dashboard ringan.</p>
+            <h1>${isLogin ? 'Kelola toko dari satu dashboard.' : 'Mulai jualan online dengan alur yang rapi.'}</h1>
+            <p>${isLogin ? 'Masuk hanya untuk seller. Link toko publik tetap terpisah dari area dashboard.' : 'Buat toko, atur produk digital/pickup/preorder, lalu bagikan link checkout ke pembeli.'}</p>
           </div>
           <div class="small-muted" style="color:#bfdbfe">${supabaseClient ? 'Mode Supabase aktif' : 'Mode demo aktif tanpa backend'}</div>
         </section>
@@ -372,16 +452,19 @@
           <form class="auth-card" onsubmit="${isLogin ? 'TokoKit.login(event)' : 'TokoKit.register(event)'}">
             <div>
               <h2>${isLogin ? 'Masuk ke Seller Center' : 'Daftar Seller Baru'}</h2>
-              <p>${isLogin ? 'Gunakan email seller untuk mengelola toko.' : 'Akun akan otomatis mendapat tenant dan toko awal.'}</p>
+              <p>${isLogin ? 'Gunakan email dan password yang kamu pakai saat membuat toko.' : 'Setelah daftar, kamu akan mendapat workspace toko dan bisa langsung melengkapi profil toko.'}</p>
             </div>
             ${state.notice ? `<div class="notice success">${escapeHtml(state.notice)}</div>` : ''}
-            ${state.error ? `<div class="notice error">${escapeHtml(state.error)}</div>` : ''}
-            ${!isLogin ? `<label class="field"><span class="label">Nama lengkap</span><input class="input" name="full_name" value="${supabaseClient ? '' : 'Melona Seller'}" autocomplete="name" required /></label>` : ''}
-            <label class="field"><span class="label">Email</span><input class="input" type="email" name="email" value="${supabaseClient ? '' : 'seller@example.com'}" autocomplete="email" required /></label>
-            <label class="field"><span class="label">Password</span><input class="input" type="password" name="password" value="${supabaseClient ? '' : 'password123'}" autocomplete="${isLogin ? 'current-password' : 'new-password'}" minlength="6" required /></label>
+            ${authError ? `<div class="notice error auth-error"><b>${escapeHtml(authError.title)}</b><span>${escapeHtml(authError.message)}</span></div>` : ''}
+            ${!isLogin ? `<label class="field"><span class="label">Nama lengkap</span><input class="input" name="full_name" value="${escapeAttr(values.full_name || (!supabaseClient ? 'Melona Seller' : ''))}" autocomplete="name" oninput="TokoKit.updateAuthField('full_name', this.value)" required /></label>` : ''}
+            <label class="field"><span class="label">Email</span><input class="input" type="email" name="email" value="${escapeAttr(values.email || (!supabaseClient ? 'seller@example.com' : ''))}" autocomplete="email" oninput="TokoKit.updateAuthField('email', this.value)" required /></label>
+            <label class="field"><span class="label">Password</span><input class="input" type="password" name="password" value="${escapeAttr(values.password || (!supabaseClient ? 'password123' : ''))}" autocomplete="${isLogin ? 'current-password' : 'new-password'}" oninput="TokoKit.updateAuthField('password', this.value)" minlength="6" required /></label>
             <button class="btn btn-primary btn-block" ${state.saving ? 'disabled' : ''}>${state.saving ? 'Memproses...' : isLogin ? 'Masuk' : 'Buat Akun'}</button>
             ${!supabaseClient ? `<button type="button" class="btn btn-secondary btn-block" onclick="TokoKit.go('/app/dashboard')">Lihat Demo Tanpa Login</button>` : ''}
-            <p>${isLogin ? 'Belum punya akun?' : 'Sudah punya akun?'} <button type="button" class="btn btn-ghost" onclick="TokoKit.go('${isLogin ? '/register' : '/login'}')">${isLogin ? 'Daftar' : 'Masuk'}</button></p>
+            <div class="auth-help">
+              <p>${isLogin ? 'Belum punya akun seller?' : 'Sudah punya akun seller?'} <button type="button" class="btn btn-ghost" onclick="TokoKit.go('${isLogin ? '/register' : '/login'}')">${isLogin ? 'Buat akun seller' : 'Masuk'}</button></p>
+              <p class="small-muted">${isLogin ? 'Jika lupa password, fitur reset password akan ditambahkan sebelum payment gateway publik.' : 'Gunakan email aktif karena konfirmasi email bisa diminta oleh Supabase.'}</p>
+            </div>
           </form>
         </section>
       </div>
@@ -452,6 +535,37 @@
         </div>
       </header>
     `;
+  }
+
+  function updateAuthField(field, value) {
+    state.authForm[field] = value;
+    if (state.error) state.error = '';
+  }
+
+  function friendlyAuthError(message) {
+    const text = String(message || '').toLowerCase();
+    if (text.includes('invalid login credentials')) {
+      return {
+        title: 'Email atau password belum cocok',
+        message: 'Cek lagi email dan password seller kamu. Input yang sudah kamu ketik tetap tersimpan, jadi cukup koreksi bagian yang salah.'
+      };
+    }
+    if (text.includes('email not confirmed')) {
+      return {
+        title: 'Email belum dikonfirmasi',
+        message: 'Buka inbox email kamu, klik link konfirmasi dari Supabase, lalu coba masuk lagi.'
+      };
+    }
+    if (text.includes('already registered') || text.includes('user already registered')) {
+      return {
+        title: 'Email sudah terdaftar',
+        message: 'Gunakan halaman masuk seller. Jika lupa password, fitur reset password akan ditambahkan berikutnya.'
+      };
+    }
+    return {
+      title: 'Belum bisa memproses permintaan',
+      message: message || 'Coba ulangi beberapa saat lagi.'
+    };
   }
 
   function pageShell(title, subtitle, actions, content) {
@@ -701,7 +815,6 @@
             </div>
           </div>
           <div class="page-actions">
-            <button class="btn" onclick="TokoKit.go('/login')">Seller</button>
             <button class="btn btn-primary" onclick="TokoKit.go('/checkout/${store.slug}')">Cart (${cartCount()})</button>
           </div>
         </nav>
@@ -980,6 +1093,20 @@
           <br>
           ${textarea('description', 'Deskripsi', product.description || '')}
           <br>
+          <div class="card" style="box-shadow:none">
+            <h3 class="card-title">Pengiriman Digital Otomatis</h3>
+            <p class="card-desc">Diisi untuk produk digital seperti voucher, akun, license key, top up, atau file. Nanti setelah payment dinamis terdeteksi paid, isi ini bisa dikirim ke email pembeli.</p>
+            <div class="form-grid">
+              <label class="field"><span class="label">Status auto-delivery</span><select class="select" name="digital_delivery_enabled"><option value="false" ${!product.digital_delivery_enabled ? 'selected' : ''}>Nonaktif</option><option value="true" ${product.digital_delivery_enabled ? 'selected' : ''}>Aktif untuk produk digital</option></select></label>
+              ${input('delivery_subject', 'Subject email', product.delivery_subject || 'Pesanan digital kamu dari TokoKit')}
+            </div>
+            <br>
+            ${textarea('delivery_message', 'Pesan email / instruksi', product.delivery_message || 'Terima kasih. Berikut detail pesanan digital kamu:')}
+            <br>
+            ${textarea('digital_stock_notes', 'Stok digital siap kirim', product.digital_stock_notes || '')}
+            <p class="small-muted">Format sementara: satu item per baris. Contoh: akun@email.com | password123 | catatan. Jangan aktifkan ke publik sebelum payment gateway dan auto-delivery selesai.</p>
+          </div>
+          <br>
           <button class="btn btn-primary btn-block" ${state.saving ? 'disabled' : ''}>${state.saving ? 'Menyimpan...' : 'Simpan Produk'}</button>
         </form>
       </div>
@@ -989,6 +1116,7 @@
   async function login(event) {
     event.preventDefault();
     const payload = formValues(event.target);
+    state.authForm = { ...state.authForm, email: payload.email || '', password: payload.password || '' };
     state.saving = true;
     state.error = '';
     render();
@@ -999,6 +1127,7 @@
       }
       const { error } = await supabaseClient.auth.signInWithPassword({ email: payload.email, password: payload.password });
       if (error) throw error;
+      state.authForm = { full_name: '', email: '', password: '' };
       go('/app/dashboard');
     } catch (error) {
       state.error = error.message;
@@ -1011,6 +1140,7 @@
   async function register(event) {
     event.preventDefault();
     const payload = formValues(event.target);
+    state.authForm = { full_name: payload.full_name || '', email: payload.email || '', password: payload.password || '' };
     state.saving = true;
     state.error = '';
     render();
@@ -1026,7 +1156,9 @@
       });
       if (error) throw error;
       state.notice = 'Akun dibuat. Jika email confirmation aktif, cek inbox sebelum login.';
-      go('/login');
+      state.authForm = { full_name: '', email: payload.email || '', password: '' };
+      history.pushState({}, '', '/login');
+      state.route = parseRoute();
     } catch (error) {
       state.error = error.message;
     } finally {
@@ -1128,6 +1260,10 @@
       fulfillment_type: values.fulfillment_type || fallbackFulfillment({ product_type: values.product_type }),
       status: values.status,
       image_url: values.image_url,
+      digital_delivery_enabled: values.digital_delivery_enabled === 'true',
+      delivery_subject: values.delivery_subject,
+      delivery_message: values.delivery_message,
+      digital_stock_notes: values.digital_stock_notes,
       updated_at: today()
     };
 

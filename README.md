@@ -40,6 +40,7 @@ tokokit/
 Seller app:
 
 - Register/login via Supabase Auth
+- Landing page publik di `/` untuk pengenalan produk dan CTA seller
 - Auto-create tenant, profile, dan toko awal
 - Dashboard metrik pesanan/produk
 - Edit profil toko dan publish/unpublish toko
@@ -60,6 +61,7 @@ Public storefront:
 - Cara penjualan per produk: digital, pickup, delivery, atau preorder pickup
 - Checkout adaptif: alamat hanya diminta jika ada produk delivery
 - Detail produk popup, tambah cart, dan beli sekarang
+- Pondasi auto-delivery produk digital: template email dan stok digital per produk
 
 Fallback:
 
@@ -106,6 +108,8 @@ window.TOKOKIT_CONFIG = {
   SUPABASE_URL: 'https://YOUR_PROJECT.supabase.co',
   SUPABASE_ANON_KEY: 'YOUR_SUPABASE_ANON_KEY',
   STORAGE_BUCKET: 'tokokit-assets',
+  ADMIN_WHATSAPP: '',
+  ADMIN_EMAIL: '',
   DEMO_STORE_SLUG: 'senja-kopi'
 };
 ```

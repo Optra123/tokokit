@@ -30,6 +30,8 @@ Katalog produk seller.
 
 Field utama: `id`, `tenant_id`, `store_id`, `name`, `slug`, `sku`, `category`, `description`, `price`, `compare_at_price`, `stock`, `product_type`, `fulfillment_type`, `status`, `image_url`.
 
+Field digital delivery: `digital_delivery_enabled`, `delivery_subject`, `delivery_message`, `digital_stock_notes`.
+
 Enum:
 
 - `product_type`: `physical`, `preorder`, `digital`, `service`
