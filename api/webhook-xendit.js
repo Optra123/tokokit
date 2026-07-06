@@ -9,12 +9,14 @@ function parseJson(raw) {
 }
 
 function getOrderNumber(body) {
-  return body.external_id
-    || body.reference_id
-    || body.data?.external_id
-    || body.data?.reference_id
-    || body.payment_request_id
-    || '';
+  return (
+    body.external_id ||
+    body.reference_id ||
+    body.data?.external_id ||
+    body.data?.reference_id ||
+    body.payment_request_id ||
+    ''
+  );
 }
 
 function isPaid(body) {
@@ -23,15 +25,21 @@ function isPaid(body) {
 }
 
 module.exports = async function handler(req, res) {
-  if (req.method !== 'POST') return json(res, 405, { error: 'Method not allowed' });
+  if (req.method !== 'POST') {
+    return json(res, 405, { error: 'Method not allowed' });
+  }
 
   try {
     const raw = await readRawBody(req);
-    if (!verifyXendit(req, raw)) return json(res, 401, { error: 'Invalid Xendit webhook signature.' });
+    if (!verifyXendit(req, raw)) {
+      return json(res, 401, { error: 'Invalid Xendit webhook signature.' });
+    }
 
     const body = parseJson(raw);
     const orderNumber = getOrderNumber(body);
-    if (!orderNumber) return json(res, 400, { error: 'Order number not found in Xendit payload.' });
+    if (!orderNumber) {
+      return json(res, 400, { error: 'Order number not found in Xendit payload.' });
+    }
 
     if (!isPaid(body)) {
       return json(res, 200, { ok: true, ignored: true, status: body.status || body.data?.status || null });

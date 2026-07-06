@@ -109,10 +109,12 @@ http://localhost:8080/register
 13. Isi produk dan upload gambar produk.
 14. Pilih status `Active`.
 15. Pilih cara penjualan:
-   - `Digital tanpa alamat`
-   - `Ambil di toko`
-   - `Delivery pakai alamat`
-   - `Preorder ambil di toko`
+
+- `Digital tanpa alamat`
+- `Ambil di toko`
+- `Delivery pakai alamat`
+- `Preorder ambil di toko`
+
 16. Klik `Simpan Produk`.
 17. Klik `Buka Toko`.
 18. Klik gambar produk atau tombol `Detail`.

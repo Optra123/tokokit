@@ -1,0 +1,9 @@
+node_modules/
+coverage/
+dist/
+build/
+.vercel/
+*.log
+.env
+.env.*
+frontend/config.js

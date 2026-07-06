@@ -1,11 +1,15 @@
 const { json, readBody, markOrderPaid, verifyMidtrans, isMidtransPaid } = require('./_lib');
 
 module.exports = async function handler(req, res) {
-  if (req.method !== 'POST') return json(res, 405, { error: 'Method not allowed' });
+  if (req.method !== 'POST') {
+    return json(res, 405, { error: 'Method not allowed' });
+  }
 
   try {
     const body = await readBody(req);
-    if (!verifyMidtrans(body)) return json(res, 401, { error: 'Invalid Midtrans signature.' });
+    if (!verifyMidtrans(body)) {
+      return json(res, 401, { error: 'Invalid Midtrans signature.' });
+    }
 
     if (!isMidtransPaid(body)) {
       return json(res, 200, {

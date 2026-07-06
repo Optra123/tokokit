@@ -5,8 +5,8 @@
 The file `frontend/config.js` contains what appears to be real Supabase credentials:
 
 ```javascript
-SUPABASE_URL: 'https://athkfjurhflzdfvztpha.supabase.co'
-SUPABASE_ANON_KEY: 'sb_publishable_g8q9B2EUVWW7sp6V3cUiog_dPtVf14i'
+SUPABASE_URL: 'https://athkfjurhflzdfvztpha.supabase.co';
+SUPABASE_ANON_KEY: 'sb_publishable_g8q9B2EUVWW7sp6V3cUiog_dPtVf14i';
 ```
 
 ### ⚡ Immediate Actions Required:
@@ -36,6 +36,7 @@ SUPABASE_ANON_KEY: 'sb_publishable_g8q9B2EUVWW7sp6V3cUiog_dPtVf14i'
 ### 🔒 Proper Setup:
 
 **For Development:**
+
 ```bash
 # Copy template
 cp frontend/config.template.js frontend/config.js
@@ -45,6 +46,7 @@ cp frontend/config.template.js frontend/config.js
 ```
 
 **For Production (Vercel):**
+
 - Set environment variables in Vercel dashboard
 - Frontend reads from `window.TOKOKIT_CONFIG`
 - Inject at build time or use public env vars
@@ -52,6 +54,7 @@ cp frontend/config.template.js frontend/config.js
 ### ✅ After Fixing:
 
 Run these commands:
+
 ```bash
 # Remove tracked config.js
 git rm --cached frontend/config.js
@@ -62,5 +65,6 @@ git commit -m "Security: Add config template and gitignore credentials"
 ```
 
 ---
+
 **Created**: 2026-07-06
 **Priority**: CRITICAL

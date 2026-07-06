@@ -6,19 +6,27 @@ function isPaidStatus(value) {
 }
 
 module.exports = async function handler(req, res) {
-  if (req.method !== 'POST') return json(res, 405, { error: 'Method not allowed' });
+  if (req.method !== 'POST') {
+    return json(res, 405, { error: 'Method not allowed' });
+  }
 
   try {
     const secret = process.env.TOKOKIT_GATEWAY_WEBHOOK_SECRET;
-    if (!secret) return json(res, 501, { error: 'TOKOKIT_GATEWAY_WEBHOOK_SECRET belum diset.' });
+    if (!secret) {
+      return json(res, 501, { error: 'TOKOKIT_GATEWAY_WEBHOOK_SECRET belum diset.' });
+    }
 
     const received = req.headers['x-tokokit-secret'] || req.headers['x-webhook-secret'];
-    if (received !== secret) return json(res, 401, { error: 'Invalid gateway webhook secret.' });
+    if (received !== secret) {
+      return json(res, 401, { error: 'Invalid gateway webhook secret.' });
+    }
 
     const body = await readBody(req);
     const orderNumber = body.order_number || body.order_id || body.reference || body.external_id;
     const status = body.status || body.payment_status || body.transaction_status;
-    if (!orderNumber) return json(res, 400, { error: 'order_number/order_id wajib ada.' });
+    if (!orderNumber) {
+      return json(res, 400, { error: 'order_number/order_id wajib ada.' });
+    }
 
     if (!isPaidStatus(status)) {
       return json(res, 200, { ok: true, ignored: true, status: status || null });
