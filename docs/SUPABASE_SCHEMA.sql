@@ -246,6 +246,8 @@ alter table public.order_items add column if not exists fulfillment_type text no
 alter table public.inventory_items add column if not exists buyer_email text;
 alter table public.inventory_items add column if not exists note text;
 alter table public.inventory_items add column if not exists delivered_at timestamptz;
+alter table public.orders add column if not exists digital_delivery_snapshot jsonb;
+alter table public.orders add column if not exists digital_delivered_at timestamptz;
 alter table public.payments add column if not exists gateway_provider text not null default 'manual';
 alter table public.payments add column if not exists gateway_reference text;
 alter table public.payments add column if not exists checkout_url text;

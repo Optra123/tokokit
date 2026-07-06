@@ -200,7 +200,8 @@ async function markOrderPaid(orderNumber, rawPayload = {}, provider = 'gateway')
   });
 
   await reserveDigitalInventory(order, provider);
-  return { order_number: order.order_number, status: 'paid' };
+  const delivery = await deliverDigitalInventory(order, provider);
+  return { order_number: order.order_number, status: 'paid', digital_delivered: delivery.delivered || 0 };
 }
 
 async function reserveDigitalInventory(order, provider) {
@@ -267,6 +268,181 @@ async function createFulfillmentLog(order, inventoryItemId, action, status, mess
   });
 }
 
+function shouldAutoDeliverProduct(product) {
+  if (!product) return false;
+  const isDigital = product.fulfillment_type === 'digital' || product.product_type === 'digital';
+  if (!isDigital) return false;
+  if (product.digital_delivery_enabled === true) return true;
+  if (product.digital_delivery_enabled === false) return false;
+  return product.product_type === 'digital';
+}
+
+function buildDeliveryText(order, store, deliveries) {
+  const lines = deliveries.map((item) => {
+    const header = [item.product_name, item.label].filter(Boolean).join(' - ');
+    const body = item.message ? `${item.message}\n` : '';
+    return `${header}\n${body}${item.payload}`.trim();
+  });
+  return [
+    `Halo ${order.buyer_name || 'Pembeli'},`,
+    '',
+    `Pesanan ${order.order_number} dari ${store?.name || 'toko'} sudah dibayar.`,
+    'Berikut detail produk digital kamu:',
+    '',
+    lines.join('\n\n---\n\n'),
+    '',
+    'Terima kasih sudah berbelanja.'
+  ].join('\n');
+}
+
+function buildDeliveryHtml(order, store, deliveries) {
+  const blocks = deliveries.map((item) => `
+    <div style="margin:16px 0;padding:14px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc">
+      <div style="font-weight:700;margin-bottom:6px">${item.product_name || 'Produk digital'}${item.label ? ` - ${item.label}` : ''}</div>
+      ${item.message ? `<p style="margin:0 0 8px;color:#475569">${item.message}</p>` : ''}
+      <pre style="margin:0;white-space:pre-wrap;font-family:ui-monospace,monospace;font-size:13px">${item.payload || ''}</pre>
+    </div>
+  `).join('');
+  return `
+    <div style="font-family:Arial,sans-serif;color:#0f172a;max-width:640px">
+      <h2 style="margin:0 0 8px">Pesanan digital kamu sudah siap</h2>
+      <p style="color:#475569">Halo ${order.buyer_name || 'Pembeli'}, pesanan <b>${order.order_number}</b> dari <b>${store?.name || 'toko'}</b> sudah dibayar.</p>
+      ${blocks}
+      <p style="color:#64748b;font-size:13px">Email ini dikirim otomatis oleh TokoKit.</p>
+    </div>
+  `;
+}
+
+async function trySendDeliveryEmail(order, store, deliveries) {
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.RESEND_FROM || 'TokoKit <onboarding@resend.dev>';
+  if (!order.buyer_email) {
+    await createFulfillmentLog(order, null, 'email_skipped', 'pending', 'Buyer tidak punya email, produk digital tersedia di halaman sukses.');
+    return false;
+  }
+  if (!apiKey) {
+    await createFulfillmentLog(order, null, 'email_skipped', 'pending', 'RESEND_API_KEY belum diset. Produk digital tetap tersedia di halaman sukses.');
+    return false;
+  }
+  const subject = deliveries[0]?.subject || `Pesanan digital ${order.order_number}`;
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      from,
+      to: [order.buyer_email],
+      subject,
+      html: buildDeliveryHtml(order, store, deliveries),
+      text: buildDeliveryText(order, store, deliveries)
+    })
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    await createFulfillmentLog(order, null, 'email_failed', 'failed', data.message || 'Gagal mengirim email delivery.');
+    return false;
+  }
+  await createFulfillmentLog(order, null, 'email_sent', 'delivered', `Email delivery terkirim ke ${order.buyer_email}.`);
+  return true;
+}
+
+async function deliverDigitalInventory(order, provider) {
+  const items = await supabase(`order_items?order_id=eq.${encodeURIComponent(order.id)}&select=*`);
+  const digitalItems = (items || []).filter((item) => item.fulfillment_type === 'digital');
+  if (!digitalItems.length) return { delivered: 0, deliveries: [] };
+
+  const store = await findStore(order.store_id);
+  const now = new Date().toISOString();
+  const deliveries = [];
+
+  for (const orderItem of digitalItems) {
+    const productRows = await supabase(`products?id=eq.${encodeURIComponent(orderItem.product_id)}&select=*`);
+    const product = productRows?.[0];
+    if (!shouldAutoDeliverProduct(product)) continue;
+
+    const reserved = await supabase(
+      `inventory_items?order_id=eq.${encodeURIComponent(order.id)}&product_id=eq.${encodeURIComponent(orderItem.product_id)}&status=eq.reserved&select=*`
+    );
+    for (const inventoryItem of reserved || []) {
+      await supabase(`inventory_items?id=eq.${encodeURIComponent(inventoryItem.id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'delivered', delivered_at: now, updated_at: now })
+      });
+      await createFulfillmentLog(order, inventoryItem.id, 'digital_delivered', 'delivered', `Auto-kirim digital via ${provider}: ${inventoryItem.label}`);
+      deliveries.push({
+        product_id: orderItem.product_id,
+        product_name: orderItem.product_name,
+        label: inventoryItem.label,
+        payload: inventoryItem.payload,
+        message: product?.delivery_message || '',
+        subject: product?.delivery_subject || `Pesanan digital ${order.order_number}`
+      });
+    }
+  }
+
+  if (deliveries.length) {
+    await trySendDeliveryEmail(order, store, deliveries);
+    await supabase(`orders?id=eq.${encodeURIComponent(order.id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        digital_delivery_snapshot: deliveries,
+        digital_delivered_at: now,
+        order_status: 'completed',
+        updated_at: now
+      })
+    });
+  }
+
+  return { delivered: deliveries.length, deliveries };
+}
+
+function normalizePhone(value) {
+  return String(value || '').replace(/\D/g, '');
+}
+
+async function getOrderDelivery(orderNumber, buyerWhatsapp) {
+  const order = await findOrder(orderNumber);
+  if (!order) throw new Error('Pesanan tidak ditemukan.');
+
+  const expected = normalizePhone(buyerWhatsapp);
+  const actual = normalizePhone(order.buyer_whatsapp);
+  if (expected && actual && expected !== actual) {
+    throw new Error('Nomor WhatsApp tidak cocok dengan pesanan ini.');
+  }
+
+  let deliveries = order.digital_delivery_snapshot || [];
+  if (order.payment_status === 'paid' && !deliveries.length) {
+    const deliveredItems = await supabase(
+      `inventory_items?order_id=eq.${encodeURIComponent(order.id)}&status=eq.delivered&select=label,payload,product_id`
+    );
+    if (deliveredItems?.length) {
+      const items = await supabase(`order_items?order_id=eq.${encodeURIComponent(order.id)}&select=product_id,product_name`);
+      deliveries = (deliveredItems || []).map((item) => ({
+        product_id: item.product_id,
+        product_name: items?.find((row) => row.product_id === item.product_id)?.product_name || 'Produk digital',
+        label: item.label,
+        payload: item.payload
+      }));
+    }
+  }
+
+  return {
+    order: {
+      order_number: order.order_number,
+      buyer_name: order.buyer_name,
+      buyer_whatsapp: order.buyer_whatsapp,
+      buyer_email: order.buyer_email,
+      total_amount: order.total_amount,
+      payment_status: order.payment_status,
+      order_status: order.order_status,
+      digital_delivered_at: order.digital_delivered_at || null
+    },
+    deliveries: order.payment_status === 'paid' ? deliveries : []
+  };
+}
+
 function verifyMidtrans(body) {
   if (!process.env.MIDTRANS_SERVER_KEY) return false;
   const source = `${body.order_id}${body.status_code}${body.gross_amount}${process.env.MIDTRANS_SERVER_KEY}`;
@@ -301,6 +477,9 @@ module.exports = {
   createPaymentUrl,
   updatePaymentLink,
   markOrderPaid,
+  deliverDigitalInventory,
+  getOrderDelivery,
+  normalizePhone,
   verifyMidtrans,
   isMidtransPaid,
   verifyXendit
